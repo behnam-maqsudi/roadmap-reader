@@ -1,0 +1,621 @@
+/* ============================================================================
+   study.css — چیدمان سه‌ستون + پنل یادگیری
+
+   ⭐ چیدمان کلی:
+        [ سرتیترها ] [ متن درس ] [ تمرین و فلش‌کارت ]
+   با جهت RTL، ستون اول سمت راست می‌افتد — همان‌طور که خواسته شد.
+   ========================================================================= */
+
+/* ============================================================================
+   ۱. شبکه‌ی سه‌ستون
+   ========================================================================= */
+
+.layout {
+  display: grid;
+  /* ستون راست | ستون وسط | ستون چپ */
+  grid-template-columns: var(--toc-width) minmax(0, 1fr) var(--study-width);
+  gap: 0;
+  align-items: start;
+  max-width: var(--layout-max);
+  margin-inline: auto;
+}
+
+/* ── ستون وسط: متن درس ── */
+
+.col-main {
+  min-width: 0; /* ⭐ لازم است تا جدول‌های پهن ستون را نشکنند */
+  padding-inline: 1.5rem;
+}
+
+/* ── ستون‌های کناری ── */
+
+.col-toc,
+.col-study {
+  position: sticky;
+  /* زیر نوار ابزار و نوار فازها می‌چسبد */
+  top: var(--sticky-top);
+  height: calc(100vh - var(--sticky-top));
+  overflow-y: auto;
+  overscroll-behavior: contain;
+  scrollbar-width: thin;
+}
+
+.col-toc {
+  /* سمت راست در RTL — جهت را از روی html می‌گیرد */
+  border-inline-end: 1px solid var(--border);
+  background: color-mix(in srgb, var(--chrome) 45%, transparent);
+}
+
+.col-study {
+  /* سمت چپ در RTL */
+  border-inline-start: 1px solid var(--border);
+  background: color-mix(in srgb, var(--chrome) 45%, transparent);
+}
+
+.col-inner {
+  padding: 1.2rem 1rem 3rem;
+}
+
+/* ============================================================================
+   ۲. فهرست سرتیترها (ستون راست)
+   ========================================================================= */
+
+.col-title {
+  margin: 0 0 0.7rem;
+  font-size: 0.7rem;
+  font-weight: 700;
+  text-transform: uppercase;
+  letter-spacing: 0.08em;
+  color: var(--text-faint);
+}
+
+.toc-list {
+  list-style: none;
+  margin: 0;
+  padding: 0;
+  font-size: 0.82rem;
+  line-height: 1.65;
+}
+
+.toc-list li {
+  margin: 0;
+}
+
+/* تورفتگی بر اساس سطح سرتیتر */
+.toc-level-1 { padding-inline-start: 0; }
+.toc-level-2 { padding-inline-start: 0.85rem; }
+.toc-level-3 { padding-inline-start: 1.7rem; }
+
+.toc-level-1 a {
+  font-weight: 650;
+  color: var(--text);
+}
+
+.toc-list a {
+  display: block;
+  padding: 0.22rem 0.55rem;
+  border-inline-start: 2px solid transparent;
+  color: var(--text-muted);
+  text-decoration: none;
+  border-radius: 0 4px 4px 0;
+  transition: color var(--transition), border-color var(--transition),
+    background var(--transition);
+}
+
+.toc-list a:hover {
+  color: var(--text);
+  border-inline-start-color: var(--accent);
+  background: color-mix(in srgb, var(--accent) 8%, transparent);
+}
+
+/* ============================================================================
+   ۳. فلش‌کارت (ستون چپ)
+   ========================================================================= */
+
+.study-panel {
+  margin-bottom: 1.6rem;
+}
+
+.study-head,
+.exercises-head {
+  display: flex;
+  align-items: baseline;
+  justify-content: space-between;
+  gap: 0.6rem;
+  flex-wrap: wrap;
+  margin-bottom: 0.8rem;
+}
+
+.study-title {
+  font-weight: 700;
+  font-size: 0.92rem;
+}
+
+.study-sub {
+  color: var(--text-muted);
+  font-size: 0.78rem;
+  margin-inline-start: 0.5rem;
+}
+
+/* ─── نوار پیشرفت ─── */
+
+.study-progress {
+  display: flex;
+  flex-direction: column;
+  gap: 0.25rem;
+  font-size: 0.75rem;
+  color: var(--text-muted);
+  min-width: 100px;
+}
+
+.study-bar {
+  height: 5px;
+  border-radius: 3px;
+  background: var(--border);
+  overflow: hidden;
+}
+
+.study-bar-fill {
+  height: 100%;
+  background: var(--accent);
+  border-radius: 3px;
+  transition: width 0.35s ease;
+}
+
+/* ─── خود کارت ─── */
+
+.flashcard-inner {
+  background: var(--surface);
+  border: 1px solid var(--border);
+  border-radius: 12px;
+  padding: 1rem 1.1rem;
+  display: flex;
+  flex-direction: column;
+  gap: 0.7rem;
+  transition: border-color 0.2s ease;
+}
+
+.flashcard.revealed .flashcard-inner {
+  border-color: var(--accent);
+}
+
+.flashcard-side {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 0.5rem;
+}
+
+.flashcard-count {
+  font-size: 0.72rem;
+  color: var(--text-faint);
+}
+
+.chip {
+  display: inline-block;
+  padding: 0.1rem 0.5rem;
+  border-radius: 999px;
+  font-size: 0.68rem;
+  background: var(--table-stripe);
+  color: var(--text-muted);
+  border: 1px solid var(--border);
+}
+
+.chip-new {
+  background: var(--accent);
+  color: var(--accent-text);
+  border-color: transparent;
+  font-weight: 600;
+}
+
+.flashcard-front {
+  font-size: 0.98rem;
+  font-weight: 600;
+  line-height: 1.7;
+  margin: 0;
+}
+
+.flashcard-divider {
+  height: 1px;
+  background: var(--border);
+}
+
+.flashcard-back {
+  animation: fade-slide 0.25s ease;
+}
+
+.flashcard-back p {
+  margin: 0;
+  line-height: 1.8;
+  font-size: 0.9rem;
+}
+
+.flashcard-hint-text {
+  color: var(--text-faint);
+  font-size: 0.78rem;
+  font-style: italic;
+  margin: 0;
+  padding-top: 0.7rem;
+  border-top: 1px dashed var(--border);
+  text-align: center;
+}
+
+@keyframes fade-slide {
+  from { opacity: 0; transform: translateY(-4px); }
+  to { opacity: 1; transform: none; }
+}
+
+/* ─── دکمه‌های درجه‌بندی ─── */
+
+.grade-label {
+  text-align: center;
+  color: var(--text-muted);
+  font-size: 0.78rem;
+  margin: 0 0 0.5rem;
+}
+
+.grade-row {
+  display: grid;
+  /* ۲×۲ چون ستون چپ باریک است */
+  grid-template-columns: repeat(2, 1fr);
+  gap: 0.4rem;
+}
+
+.grade-btn {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 0.1rem;
+  padding: 0.55rem 0.3rem;
+  border: 1px solid var(--border);
+  border-radius: 9px;
+  background: var(--surface);
+  color: var(--text);
+  cursor: pointer;
+  font-family: inherit;
+  font-size: 0.78rem;
+  transition: transform 0.12s ease, border-color 0.12s ease, background 0.12s ease;
+}
+
+.grade-btn:hover { transform: translateY(-2px); }
+.grade-btn:active { transform: translateY(0); }
+.grade-btn strong { font-weight: 650; font-size: 0.95em; }
+.grade-btn span { font-size: 0.75em; opacity: 0.6; }
+
+/* رنگ‌ها از حس می‌آیند: قرمز=فراموش، سبز=آسان */
+.grade-again:hover { border-color: #d94a4a; background: color-mix(in srgb, #d94a4a 12%, var(--surface)); }
+.grade-hard:hover  { border-color: #d99413; background: color-mix(in srgb, #d99413 12%, var(--surface)); }
+.grade-good:hover  { border-color: #3a9d5d; background: color-mix(in srgb, #3a9d5d 12%, var(--surface)); }
+.grade-easy:hover  { border-color: #2f8fbf; background: color-mix(in srgb, #2f8fbf 12%, var(--surface)); }
+
+/* ─── حالت «تمام شد» ─── */
+
+.study-done {
+  text-align: center;
+  padding: 1.5rem 0.8rem;
+  background: var(--surface);
+  border: 1px solid var(--border);
+  border-radius: 12px;
+}
+
+.study-done-icon {
+  font-size: 1.8rem;
+  color: var(--accent);
+  line-height: 1;
+  margin-bottom: 0.4rem;
+}
+
+.study-done h3 {
+  margin: 0 0 0.3rem;
+  font-size: 1rem;
+}
+
+.study-stats {
+  display: flex;
+  justify-content: center;
+  gap: 1.2rem;
+  margin: 1rem 0;
+  flex-wrap: wrap;
+}
+
+.stat {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+}
+
+.stat-value { font-size: 1.25em; font-weight: 700; }
+.stat.good .stat-value { color: var(--accent); }
+.stat-label { font-size: 0.72rem; color: var(--text-muted); }
+
+.study-actions,
+.study-foot {
+  display: flex;
+  gap: 0.4rem;
+  justify-content: center;
+  flex-wrap: wrap;
+}
+
+.study-foot {
+  margin-top: 0.8rem;
+  padding-top: 0.7rem;
+  border-top: 1px solid var(--border);
+}
+
+/* ============================================================================
+   ۴. تمرین‌ها (ستون چپ)
+   ========================================================================= */
+
+.exercises {
+  margin-bottom: 1.5rem;
+}
+
+.exercise-list {
+  list-style: none;
+  padding: 0;
+  margin: 0;
+  border: 1px solid var(--border);
+  border-radius: 12px;
+  overflow: hidden;
+}
+
+.exercise {
+  border-bottom: 1px solid var(--border);
+  background: var(--surface);
+}
+
+.exercise:last-child { border-bottom: none; }
+.exercise.done { opacity: 0.55; }
+.exercise.done .exercise-title {
+  text-decoration: line-through;
+  text-decoration-color: var(--text-faint);
+}
+.exercise.open { background: var(--bg); }
+
+.exercise-row {
+  display: flex;
+  align-items: center;
+  gap: 0.55rem;
+  padding: 0.55rem 0.7rem;
+}
+
+.exercise-check {
+  flex-shrink: 0;
+  width: 20px;
+  height: 20px;
+  border-radius: 6px;
+  border: 2px solid var(--border-strong);
+  background: transparent;
+  color: var(--accent-text);
+  cursor: pointer;
+  font-size: 12px;
+  line-height: 1;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  transition: background 0.15s ease, border-color 0.15s ease;
+}
+
+.exercise-check[aria-pressed='true'] {
+  background: var(--accent);
+  border-color: var(--accent);
+}
+
+.exercise-title {
+  flex: 1;
+  display: flex;
+  align-items: center;
+  gap: 0.45rem;
+  background: none;
+  border: none;
+  color: var(--text);
+  font-family: inherit;
+  font-size: 0.85rem;
+  font-weight: 550;
+  text-align: start;
+  cursor: pointer;
+  padding: 0;
+}
+
+.exercise-chevron { color: var(--text-faint); font-size: 0.7em; }
+
+/* نقطه‌ی سختی */
+.level-dot {
+  width: 7px;
+  height: 7px;
+  border-radius: 50%;
+  flex-shrink: 0;
+}
+
+.level-1 { background: #3a9d5d; }
+.level-2 { background: #d99413; }
+.level-3 { background: #d94a4a; }
+
+.exercise-body {
+  padding: 0 0.7rem 0.8rem 0.7rem;
+  font-size: 0.85rem;
+}
+
+.exercise-prompt {
+  margin: 0 0 0.7rem;
+  line-height: 1.75;
+}
+
+/* ─── جدول داده ─── */
+
+.data-block {
+  margin: 0 0 0.7rem;
+  border: 1px solid var(--border);
+  border-radius: 8px;
+  overflow: hidden;
+}
+
+.data-head {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 0.5rem;
+  padding: 0.35rem 0.6rem;
+  background: var(--table-stripe);
+  border-bottom: 1px solid var(--border);
+  font-size: 0.76rem;
+}
+
+.data-name { font-weight: 600; font-family: 'JetBrains Mono', monospace; }
+.data-count { font-size: 0.9em; }
+
+.data-scroll { overflow-x: auto; }
+
+.data-table {
+  width: 100%;
+  border-collapse: collapse;
+  font-size: 0.74rem;
+}
+
+.data-table th {
+  text-align: start;
+  padding: 0.3rem 0.5rem;
+  border-bottom: 1px solid var(--border);
+  font-weight: 600;
+  color: var(--text-muted);
+  white-space: nowrap;
+  background: var(--surface);
+}
+
+.data-table td {
+  padding: 0.25rem 0.5rem;
+  border-bottom: 1px solid var(--border);
+  white-space: nowrap;
+}
+
+.data-table tr:last-child td { border-bottom: none; }
+
+.data-table code {
+  font-family: 'JetBrains Mono', monospace;
+  background: none;
+  padding: 0;
+  border: none;
+  font-size: 0.95em;
+  color: var(--code-text);
+}
+
+/* ─── راهنما ─── */
+
+.exercise-hint-wrap { margin-bottom: 0.7rem; }
+
+.exercise-hint {
+  margin: 0;
+  padding: 0.5rem 0.7rem;
+  background: var(--code-inline-bg);
+  border-inline-start: 3px solid var(--accent);
+  border-radius: 0 6px 6px 0;
+  font-size: 0.85em;
+  line-height: 1.7;
+  animation: fade-slide 0.2s ease;
+}
+
+/* ─── معیار اتمام ─── */
+
+.exercise-done-criteria {
+  padding: 0.5rem 0.7rem;
+  background: var(--table-stripe);
+  border-radius: 6px;
+  font-size: 0.82em;
+  line-height: 1.7;
+}
+
+.criteria-label {
+  display: block;
+  font-weight: 650;
+  color: var(--accent);
+  font-size: 0.9em;
+  margin-bottom: 0.15rem;
+}
+
+/* ============================================================================
+   ۵. نشان کارت سررسید، کنار نام فاز
+   ========================================================================= */
+
+.phase-due {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  min-width: 17px;
+  height: 17px;
+  padding: 0 5px;
+  margin-inline-start: 0.35rem;
+  border-radius: 999px;
+  background: var(--accent);
+  color: var(--accent-text);
+  font-size: 0.68rem;
+  font-weight: 700;
+  line-height: 1;
+}
+
+/* ============================================================================
+   ۶. واکنش‌گرایی — سه‌ستون فقط وقتی جا باشد
+   ========================================================================= */
+
+/* ⭐ اولین نقطه‌ای که سه‌ستون جا نمی‌شود: دو ستون کناری جمع می‌شوند */
+@media (max-width: 1280px) {
+  .layout {
+    /* ستون راست | متن | (ستون چپ می‌رود زیر متن) */
+    grid-template-columns: var(--toc-width) minmax(0, 1fr);
+  }
+
+  .col-study {
+    grid-column: 1 / -1;
+    position: static;
+    height: auto;
+    border-inline-start: none;
+    border-top: 1px solid var(--border);
+  }
+
+  .col-study .col-inner {
+    /* در حالت دو‌ستونی، یک شبکه‌ی دو‌تایی می‌سازیم تا کارت و تمرین کنار هم */
+    display: grid;
+    grid-template-columns: minmax(0, 1fr) minmax(0, 1.2fr);
+    gap: 1.2rem;
+    align-items: start;
+  }
+
+  .grade-row {
+    grid-template-columns: repeat(4, 1fr);
+  }
+}
+
+/* متن تنها — همه‌چیز زیر هم */
+@media (max-width: 900px) {
+  .layout {
+    grid-template-columns: minmax(0, 1fr);
+  }
+
+  .col-toc {
+    grid-column: 1;
+    position: static;
+    height: auto;
+    /* ⭐ با ۱۴ فاز، ستون راست در موبایل قد می‌کشد؛ سقف می‌خورد تا
+       فهرست فازها اسکرول شود و سرتیترها پایین‌تر بروند */
+    max-height: 45vh;
+    overflow-y: auto;
+    border-inline-end: none;
+    border-bottom: 1px solid var(--border);
+  }
+
+  .col-study .col-inner {
+    grid-template-columns: minmax(0, 1fr);
+  }
+
+  .grade-row {
+    grid-template-columns: repeat(2, 1fr);
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .flashcard-back,
+  .exercise-hint { animation: none; }
+
+  .grade-btn:hover,
+  .study-bar-fill,
+  .toc-list a { transition: none; }
+}

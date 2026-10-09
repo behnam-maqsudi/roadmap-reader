@@ -1,0 +1,201 @@
+/* ============================================================================
+   highlight-themes.css — رنگ‌بندی نحو کد
+
+   highlight.js کلاس‌های hljs-* را روی spanها می‌گذارد.
+   اینجا آن رنگ‌ها را با تم‌های خودمان هماهنگ می‌کنیم.
+
+   نکته: رنگ‌ها اینجا کاملاً محلی‌اند و از <html data-code-theme="...">
+   خوانده می‌شوند. قبلاً فایل CSS هر تم از CDN می‌آمد که رنگ‌های
+   سخت‌افزاری داشت و تم تیره را نمی‌فهمید (متن تیره روی زمینه‌ی تیره).
+   آن لینک حذف شده — پس اولویت CSS و لود آفلاین هر دو درست است.
+   ========================================================================= */
+
+/* ─── پایه ─── */
+
+.hljs {
+  color: var(--code-text);
+  background: transparent;
+}
+
+/* ─── گیت‌هاب لایت ─── */
+:root,
+html[data-code-theme='github'] {
+  --syn-comment: #6a737d;
+  --syn-keyword: #cf222e;
+  --syn-string: #0a3069;
+  --syn-number: #0550ae;
+  --syn-function: #8250df;
+  --syn-type: #953800;
+  --syn-variable: #24292f;
+  --syn-builtin: #116329;
+  --syn-tag: #116329;
+  --syn-attr: #0550ae;
+  --syn-punctuation: #57606a;
+}
+
+/* ─── گیت‌هاب تاریک ─── */
+html[data-code-theme='github-dark'] {
+  /* ⭐ رنگ کامنت از رنگ اصلی گیت‌هاب (#8b949e که اینجاست) روشن‌تر شد تا
+     کنتراستش با زمینه‌ی #161b22 از ۳.۸ به ۵.۶ برسد و کامنت هم خوانا بماند. */
+  --syn-comment: #9da7b3;
+  --syn-keyword: #ff7b72;
+  --syn-string: #a5d6ff;
+  --syn-number: #79c0ff;
+  --syn-function: #d2a8ff;
+  --syn-type: #ffa657;
+  --syn-variable: #c9d1d9;
+  --syn-builtin: #7ee787;
+  --syn-tag: #7ee787;
+  --syn-attr: #79c0ff;
+  --syn-punctuation: #8b949e;
+}
+
+/* ─── اتم تاریک ─── */
+html[data-code-theme='atom-one-dark'] {
+  /* ⭐ کامنت روشن‌تر شد تا کنتراست از ۲.۴ (زیر حد خوانایی) به بالای ۴.۵ برسد */
+  --syn-comment: #8b94a6;
+  --syn-keyword: #c678dd;
+  --syn-string: #98c379;
+  --syn-number: #d19a66;
+  --syn-function: #61afef;
+  --syn-type: #e5c07b;
+  --syn-variable: #e8767e;
+  --syn-builtin: #56b6c2;
+  --syn-tag: #e8767e;
+  --syn-attr: #d19a66;
+  --syn-punctuation: #abb2bf;
+}
+
+/* ─── ویژوال استودیو ─── */
+html[data-code-theme='vs'] {
+  --syn-comment: #008000;
+  --syn-keyword: #0000ff;
+  --syn-string: #a31515;
+  --syn-number: #057a4d;
+  --syn-function: #795e26;
+  --syn-type: #136d85;
+  --syn-variable: #001080;
+  --syn-builtin: #795e26;
+  --syn-tag: #800000;
+  --syn-attr: #e50000;
+  --syn-punctuation: #000000;
+}
+
+/* ─── موناکای ─── */
+html[data-code-theme='monokai'] {
+  /* ⭐ کامنت روشن‌تر شد تا کنتراست از ۲.۹ به بالای ۴.۵ برسد */
+  --syn-comment: #a5a08a;
+  --syn-keyword: #66d9ef;
+  --syn-string: #e6db74;
+  --syn-number: #ae81ff;
+  --syn-function: #a6e22e;
+  --syn-type: #ff7b9c;
+  --syn-variable: #f8f8f2;
+  --syn-builtin: #66d9ef;
+  --syn-tag: #f92672;
+  --syn-attr: #a6e22e;
+  --syn-punctuation: #f8f8f2;
+}
+
+/* ============================================================================
+   نگاشت کلاس‌های highlight.js به متغیرها
+   (برای همه‌ی تم‌ها یکسان است — فقط متغیرها عوض می‌شوند)
+   ========================================================================= */
+
+.hljs-comment,
+.hljs-quote {
+  color: var(--syn-comment);
+  font-style: italic;
+}
+
+.hljs-keyword,
+.hljs-selector-tag,
+.hljs-literal,
+.hljs-doctag,
+.hljs-formula {
+  color: var(--syn-keyword);
+}
+
+.hljs-string,
+.hljs-regexp,
+.hljs-addition,
+.hljs-attribute,
+.hljs-meta .hljs-string {
+  color: var(--syn-string);
+}
+
+.hljs-number,
+.hljs-symbol,
+.hljs-bullet,
+.hljs-link,
+.hljs-selector-attr,
+.hljs-selector-pseudo,
+.hljs-template-variable,
+.hljs-variable {
+  color: var(--syn-number);
+}
+
+.hljs-title,
+.hljs-title.class_,
+.hljs-title.function_,
+.hljs-section {
+  color: var(--syn-function);
+}
+
+.hljs-type,
+.hljs-class .hljs-title,
+.hljs-built_in,
+.hljs-title.class_.inherited__ {
+  color: var(--syn-type);
+}
+
+.hljs-attr,
+.hljs-selector-class,
+.hljs-selector-id,
+.hljs-selector-attr {
+  color: var(--syn-attr);
+}
+
+.hljs-name,
+.hljs-tag {
+  color: var(--syn-tag);
+}
+
+.hljs-params {
+  color: var(--syn-variable);
+}
+
+/* ماکروها و ثابت‌های خاص */
+.hljs-meta,
+.hljs-meta .hljs-keyword {
+  color: var(--syn-punctuation);
+}
+
+.hljs-punctuation,
+.hljs-subst {
+  color: var(--syn-punctuation);
+}
+
+.hljs-built_in {
+  color: var(--syn-builtin);
+}
+
+/* خط‌های حذف‌شده و اضافه‌شده */
+.hljs-deletion {
+  background: rgba(255, 0, 0, 0.12);
+  display: block;
+}
+
+.hljs-addition {
+  background: rgba(0, 255, 0, 0.12);
+  display: block;
+}
+
+/* متن پررنگ در کد */
+.hljs-strong {
+  font-weight: 700;
+}
+
+.hljs-emphasis {
+  font-style: italic;
+}

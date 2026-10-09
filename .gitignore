@@ -1,0 +1,25 @@
+# وابستگی‌ها — ۱۰۲ مگابایت، از طرفِ npm نصب می‌شود
+node_modules/
+
+# خروجیِ بیلد — با `npm run build` ساخته می‌شود
+dist/
+
+# حافظه‌ی نهفتِ TypeScript
+*.tsbuildinfo
+
+# پوشه‌های موقتِ تست‌ها (خودشان پاک می‌شوند، ولی اگر وسطِ کار بمانند)
+.موقت-*
+
+# فایل‌های محلی — اینها مالِ کارِ راستی‌آزمایی بودند، نه پروژه
+sx.py
+sx2.py
+inst.json
+jep1957.json
+jep1959b.json
+
+# سیستم‌عامل و ویرایشگر
+.DS_Store
+Thumbs.db
+.vscode/*
+!.vscode/extensions.json
+.idea/

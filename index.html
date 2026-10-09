@@ -1,0 +1,40 @@
+<!doctype html>
+<html lang="fa" dir="rtl">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>خواننده‌ی نقشه‌ی راه</title>
+    <meta
+      name="description"
+      content="خواننده‌ی نقشه‌ی راه بک‌اند و مهندسی AI — با کنترل کامل روی اندازه و شکل متن"
+    />
+
+    <!-- ⭐ فونت‌ها محلی‌اند (public/fonts/) و در styles.css تعریف شده‌اند.
+         عمداً هیچ لینک CDN اینجا نیست تا اپ آفلاین هم کار کند. -->
+    <link
+      rel="preload"
+      href="/fonts/vazirmatn-arabic.woff2"
+      as="font"
+      type="font/woff2"
+      crossorigin
+    />
+
+    <script>
+      // ⭐ تم را قبل از رندر اعمال کن تا صفحه "فلش" نخورد
+      // (اگر صبر کنیم تا useEffect، یک لحظه تم اشتباه دیده می‌شود)
+      try {
+        var s = localStorage.getItem('roadmap-reader-settings')
+        if (s) {
+          var t = JSON.parse(s).theme
+          if (t === 'dark') document.documentElement.dataset.theme = 'dark'
+        } else if (matchMedia('(prefers-color-scheme: dark)').matches) {
+          document.documentElement.dataset.theme = 'dark'
+        }
+      } catch (e) {}
+    </script>
+  </head>
+  <body>
+    <div id="root"></div>
+    <script type="module" src="/src/main.tsx"></script>
+  </body>
+</html>
