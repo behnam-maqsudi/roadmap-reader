@@ -38,10 +38,21 @@ function textOf(node: ReactNode): string {
  * **خالص** باشد. `StrictMode` رندر را دو بار اجرا می‌کند؛ اگر شمارنده در
  * حین رندر زیاد شود، هر سرتیتر شماره را دو بار مصرف می‌کند و شناسه‌هایش با
  * فهرستِ کنار صفحه نمی‌خواند. شمارهٔ سطر در هر رندری دقیقاً یکی است.
+ *
+ * ⭐⭐⭐ چرا `prefix`؟
+ *
+ * `extractHeadings` فقط **داخلِ یک سند** تکراری‌ها را شماره‌گذاری می‌کند.
+ * ولی در چیدمانِ آکاردئونی، چند فاز هم‌زمان بازند و هرکدام سرتیترِ
+ * «منابع» و «جمع‌بندی» دارند. بدون پیشوند، ده تا `id="منابع"` در صفحه می‌شد و
+ * `getElementById` همیشه **اولی** را برمی‌گرداند — یعنی فهرستِ هر فاز به
+ * سرتیترِ فازِ اول می‌پرید. پیشوند، شناسه را سراسری یکتا می‌کند.
+ *
+ * پیشوند از خودِ سند می‌آید (نه از شمارنده‌ای که در رندر زیاد می‌شود)، پس
+ * رندرِ دوباره دقیقاً همان شناسه‌ها را می‌سازد و لنگرها نمی‌شکنند.
  */
-function buildHeadingTable(markdown: string): Map<number, string> {
+function buildHeadingTable(markdown: string, prefix: string): Map<number, string> {
   const byLine = new Map<number, string>()
-  for (const h of extractHeadings(markdown)) byLine.set(h.line, h.id)
+  for (const h of extractHeadings(markdown)) byLine.set(h.line, `${prefix}${h.id}`)
   return byLine
 }
 
@@ -140,9 +151,12 @@ function Callout({
   )
 }
 
-function MarkdownImpl({ content }: { content: string }) {
+function MarkdownImpl({ content, anchorPrefix = '' }: { content: string; anchorPrefix?: string }) {
   const highlightOptions = useMemo(() => ({ detect: true, ignoreMissing: true }), [])
-  const headings = useMemo(() => buildHeadingTable(content), [content])
+  const headings = useMemo(
+    () => buildHeadingTable(content, anchorPrefix),
+    [content, anchorPrefix],
+  )
 
   const components = useMemo<Partial<Components>>(
     () => ({

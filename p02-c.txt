@@ -1,3 +1,0 @@
-161 first4= "      " last6= "یرد.\"," len= 702
-162 first4= "\\n**نک" last6= "بری.\"," len= 118
-163 first4= "      " last6= "ta\": {" len= 21

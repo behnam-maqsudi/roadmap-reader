@@ -1,6 +1,0 @@
-"callout-"     : v2-hss5UGdh.js
-"callout-story": not literal (template)
-"diagram-label": v2-hss5UGdh.js
-"heading-anchor": v2-hss5UGdh.js
-"تفسیر پاسخ"  : v2-hss5UGdh.js فاز-۱۳-امنیتی-و-ارزیابی-ai-DujpcHEi.js
-"دوباره تلاش" : v2-hss5UGdh.js فاز-۰۰-Dp2t3AgI.js فاز-۰۰-پایه‌های-سیستم-و-لینوکس-BYEkWEbo.js فاز-۰۱-DkEpOsEI.js فاز-۱۳-امنیتی-و-ارزیابی-ai-DujpcHEi.js

@@ -145,6 +145,12 @@ const dist = join(root, 'dist')
 if (!existsSync(dist)) {
   console.log('  ⓘ هنوز build نشده — این بخش رد شد (اول npm run build بزن)')
 } else {
+  const walk = (dir) =>
+    readdirSync(dir).flatMap((f) => {
+      const p = join(dir, f)
+      return statSync(p).isDirectory() ? walk(p) : [p]
+    })
+
   const bundles = walk(dist).filter((f) => /\.(js|css|html)$/.test(f))
 
   /**
