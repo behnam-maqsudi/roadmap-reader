@@ -23,3 +23,29 @@ export declare function nextSlug(text: string, seen: Map<string, number>): strin
  * @param headings متنِ سرتیترها، به همان ترتیبی که در سند آمده‌اند
  */
 export declare function buildSlugs(headings: string[]): string[]
+
+/** یک سرتیترِ پیدا‌شده در متن، همراه با جایش. */
+export interface Heading {
+  /** متنِ سرتیتر، بدون `#` و بدون فاصله‌های اضافه */
+  text: string
+  /** سطحش: ۱ تا ۶ (`#` تا `######`) */
+  level: number
+  /**
+   * شمارهٔ سطر در متنِ اصلی، از ۱.
+   *
+   * ⭐ این عدد **ثابت** است — به رندر ربطی ندارد. به همین دلیل است که
+   * رندرر می‌تواند به‌جای شمارندهٔ مشترک (که در `StrictMode` دو بار شمرده
+   * می‌شد) از آن استفاده کند.
+   */
+  line: number
+  /** شناسهٔ یکتا برای لنگر — با همان قاعده‌ای که فهرستِ کنار صفحه می‌سازد */
+  id: string
+}
+
+/**
+ * تنها جایی که سرتیترهای یک سند از متن درمی‌آیند.
+ *
+ * `App.tsx` (فهرستِ کنارِ صفحه) و `Markdown.tsx` (رندرر) هر دو از همین
+ * می‌خوانند؛ برای همین شناسه‌هایشان نمی‌تواند از هم جدا بیفتد.
+ */
+export declare function extractHeadings(markdown: string): Heading[]

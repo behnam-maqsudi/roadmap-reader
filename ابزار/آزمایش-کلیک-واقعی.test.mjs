@@ -1,19 +1,22 @@
 /**
  * آزمایش-کلیک-واقعی.test.mjs — آیا کلیک روی فهرست، واقعاً کاربر را می‌برد؟
  *
- * ⭐ چرا این تست جدا از بقیه است؟
+ * ⭐⭐ چرا این تست با شبیه‌سازیِ رندرِ دوبله کار می‌کند؟
  *
- * `آزمایش-لنگر` می‌گوید «دو مسیرِ ساختِ شناسه یکی هستند».
- * `آزمایش-رندر-واقعی` می‌گوید «`id` روی سرتیتر می‌نشیند».
+ * تست‌های دیگر (`renderToStaticMarkup`) یک رندرِ تنها می‌سازند و سبز می‌مانند،
+ * ولی اپ واقعی داخل `StrictMode` است و **هر کامپوننت دو بار رندر می‌شود**.
  *
- * ولی شکافِ بینِ این دو یعنی چیست؟ یعنی: **فهرست می‌گوید `#منابع-۲`،
- * و مرورگر باید عنصری با همان `id` را پیدا کند.** اگر یکی از این دو
- * رشته چند نویسه اختلاف داشته باشد — مثلاً یکی نیم‌فاصله دارد و دیگری
- * ندارد — هر دو تست سبز می‌مانند ولی کلیک بی‌اثر است.
+ * همان باگی که این تست شکار می‌کند دقیقاً از همین‌جا می‌آمد: شمارندهٔ
+ * سرتیترهای تکراری در **حین رندر** زیاد می‌شد. یعنی:
  *
- * این تست دقیقاً همان شکاف را می‌بندد: از روی متنِ واقعیِ فازها، هر
- * شناسه‌ای که فهرست می‌سازد را در HTMLِ رندرشده جست‌وجو می‌کند و می‌گوید
- * آیا عنصری با آن `id` **واقعاً وجود دارد یا نه**.
+ *     رندرِ ۱  →  «۱-از-کجا-شروع-کنم»     (شمارنده: ۰ ← ۱)
+ *     رندرِ ۲  →  «۱-از-کجا-شروع-کنم-1»   (شمارنده: ۱ ← ۲)  ← این می‌ماند
+ *
+ * ولی فهرستِ کنارِ صفحه از روی متن ساخته شده و پسوند ندارد. پس `getElementById`
+ * شکست می‌خورد و کلیک بی‌صدا از کار می‌افتاد.
+ *
+ * پس این تست **خودِ رفتارِ StrictMode را شبیه‌سازی می‌کند**: کامپوننت را
+ * دوبار پشتِ سر هم صدا می‌زند، درست مثل کاری که React 19 می‌کند.
  */
 
 import { describe, it, before, after } from 'node:test'
@@ -27,9 +30,12 @@ const here = dirname(fileURLToPath(import.meta.url))
 const root = join(here, '..')
 
 // منطقِ مشترکِ شناسه — همان فایلی که App.tsx و Markdown.tsx از آن می‌خوانند
-const { buildSlugs } = await import(pathToFileURL(join(root, 'src', 'slug.js')).href)
+const { extractHeadings } = await import(
+  pathToFileURL(join(root, 'src', 'slug.js')).href
+)
 
 let render
+let renderTwice
 const scratch = join(root, 'ابزار', '.موقت-کلیک')
 
 before(async () => {
@@ -39,7 +45,7 @@ before(async () => {
   writeFileSync(
     entry,
     `
-import { createElement } from 'react'
+import { createElement, StrictMode } from 'react'
 import { renderToStaticMarkup } from 'react-dom/server'
 import { Markdown } from ${JSON.stringify(join(root, 'src', 'Markdown.tsx'))}
 
@@ -52,7 +58,15 @@ const settings = {
 }
 
 export function render(content) {
-  return renderToStaticMarkup(createElement(Markdown, { content, settings }))
+  return renderToStaticMarkup(
+    createElement(StrictMode, null, createElement(Markdown, { content, settings })),
+  )
+}
+
+/** ⭐ دو رندرِ پشتِ سر هم — دقیقاً مثل StrictMode در مرورگر. */
+export function renderTwice(content) {
+  render(content)
+  return render(content)
 }
 `,
     'utf8',
@@ -72,30 +86,24 @@ export function render(content) {
 
   const bundlePath = join(scratch, 'bundle.mjs')
   writeFileSync(bundlePath, result.outputFiles[0].text, 'utf8')
-  render = (await import(pathToFileURL(bundlePath).href)).render
+  const mod = await import(pathToFileURL(bundlePath).href)
+  render = mod.render
+  renderTwice = mod.renderTwice
 })
 
 after(() => rmSync(scratch, { recursive: true, force: true }))
 
-/** همان کاری که `toc` در App.tsx می‌کند: سرتیترها را از متن درمی‌آورد. */
-function buildToc(content) {
-  const found = []
-  let inFence = false
-
-  for (const line of content.split('\n')) {
-    if (line.startsWith('```')) {
-      inFence = !inFence
-      continue
-    }
-    if (inFence) continue
-
-    const m = line.match(/^(#{1,3})\s+(.+)$/)
-    if (m) found.push({ text: m[2].trim(), level: m[1].length })
-  }
-  return found
-}
-
 const phases = readdirSync(join(root, 'فازها')).filter((f) => f.endsWith('.md'))
+
+/** همان کاری که فهرستِ کنارِ صفحه می‌کند: سطحِ ۱ تا ۳. */
+const linkIds = (content) =>
+  extractHeadings(content)
+    .filter((h) => h.level <= 3)
+    .map((h) => h.id)
+
+/** شناسه‌هایی که واقعاً روی سرتیترهای رندرشده نشسته‌اند. */
+const domIds = (html) =>
+  new Set([...html.matchAll(/<h[1-6][^>]*\sid="([^"]*)"/g)].map((m) => m[1]))
 
 describe('کلیک روی فهرست — از لینک تا عنصر، بدون شکاف', () => {
   for (const file of phases) {
@@ -103,44 +111,68 @@ describe('کلیک روی فهرست — از لینک تا عنصر، بدون 
       const content = readFileSync(join(root, 'فازها', file), 'utf8')
       const html = render(content)
 
-      // ۱) شناسه‌هایی که فهرست می‌سازد (همان `buildSlugs`)
-      const linkIds = buildSlugs(buildToc(content).map((h) => h.text))
+      const links = linkIds(content)
+      const onPage = domIds(html)
 
-      // ۲) شناسه‌هایی که واقعاً در صفحه نشسته‌اند
-      const domIds = new Set(
-        [...html.matchAll(/<h[1-4][^>]*\sid="([^"]*)"/g)].map((m) => m[1]),
-      )
-
-      // ۳) هر لینکی باید سرتیترش را در صفحه پیدا کند — وگرنه کلیک بی‌اثر است
-      const orphans = linkIds.filter((id) => !domIds.has(id))
+      // هر لینکی باید سرتیترش را در صفحه پیدا کند — وگرنه کلیک بی‌اثر می‌شود
+      const orphans = links.filter((id) => !onPage.has(id))
 
       assert.deepEqual(
         orphans,
         [],
         `${file}: ${orphans.length} لینکِ فهرست به هیچ سرتیتری نمی‌رسد — ` +
-          `کلیک روی آن‌ها بی‌اثر می‌شود`,
+          `کلیک روی آن‌ها بی‌اثر می‌شود. ` +
+          `نمونه: ${orphans.slice(0, 3).join(' | ')}`,
       )
     })
   }
 
-  it('سرتیترهای تکراری، لینک‌های متفاوت دارند (کلیکِ دومی هم می‌رسد)', () => {
-    // «منابع» در یک فاز چند بار می‌آید. اگر هر سه یک `id` بگیرند، دو تای
-    // آخر همیشه به همان اولی می‌رسند و خواننده گم می‌شود.
-    const content = readFileSync(join(root, 'فازها', phases[0]), 'utf8')
-    const html = render(content)
+  // ⭐⭐ این تست همان چیزی است که هیچ تستِ دیگری نمی‌گفت.
+  it('رندرِ دوباره (مثل StrictMode) لنگرها را خراب نمی‌کند', () => {
+    for (const file of phases) {
+      const content = readFileSync(join(root, 'فازها', file), 'utf8')
 
-    const ids = [...html.matchAll(/<h[1-4][^>]*\sid="([^"]*)"/g)].map((m) => m[1])
+      const once = domIds(render(content))
+      const twice = domIds(renderTwice(content))
+
+      assert.deepEqual(
+        [...twice].sort(),
+        [...once].sort(),
+        `${file}: رندرِ دوم شناسه‌ها را عوض کرد — ` +
+          'یعنی چیزی در حین رندر تغییر می‌کند. ' +
+          'اگر شمارندهٔ سرتیترها زنده بماند، هر رندر یک `-1` اضافه می‌کند.',
+      )
+    }
+  })
+
+  it('سرتیترهای تکراری، لینک‌های متفاوت دارند (کلیکِ دومی هم می‌رسد)', () => {
+    // «چرا وجود دارد؟» در فاز ۳ پنج بار می‌آید. اگر هر پنج یک `id` بگیرند،
+    // چهار تای آخر همیشه به همان اولی می‌رسند و خواننده گم می‌شود.
+    const withDupes = phases.find((f) => {
+      const c = readFileSync(join(root, 'فازها', f), 'utf8')
+      const texts = extractHeadings(c).map((h) => h.text)
+      return new Set(texts).size !== texts.length
+    })
+
+    assert.ok(withDupes, 'هیچ فازی سرتیترِ تکراری ندارد — تست بی‌معنا می‌شود')
+
+    const content = readFileSync(join(root, 'فازها', withDupes), 'utf8')
+    const ids = extractHeadings(content).map((h) => h.id)
     const counts = new Map()
     for (const id of ids) counts.set(id, (counts.get(id) ?? 0) + 1)
 
     const dupes = [...counts.entries()].filter(([, n]) => n > 1)
-    assert.deepEqual(dupes, [], `شناسه‌ی تکراری در HTML: ${dupes.map((d) => d[0]).join(', ')}`)
+    assert.deepEqual(
+      dupes,
+      [],
+      `شناسه‌ی تکراری در «${withDupes}»: ${dupes.map((d) => d[0]).join(', ')}`,
+    )
   })
 
   it('هیچ لینکِ فهرست، خالی یا «#» نمی‌شود', () => {
     for (const file of phases) {
       const content = readFileSync(join(root, 'فازها', file), 'utf8')
-      for (const id of buildSlugs(buildToc(content).map((h) => h.text))) {
+      for (const id of linkIds(content)) {
         assert.ok(id.trim().length > 0, `${file}: شناسه‌ی خالی — لینک می‌شود «#»`)
         assert.doesNotMatch(
           id,

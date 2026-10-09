@@ -66,3 +66,58 @@ export function buildSlugs(headings) {
   const seen = new Map()
   return headings.map((text) => nextSlug(text, seen))
 }
+
+/**
+ * ⭐ تنها جایی که سرتیترهای یک سند از متن درمی‌آیند.
+ *
+ * هر دو مصرف‌کننده — فهرستِ کنارِ صفحه (`App.tsx`) و رندرر
+ * (`Markdown.tsx`) — از **همین** تابع می‌خوانند. برای همین است که هیچ‌وقت
+ * نمی‌توانند از هم جدا بیفتند: نه با یک نسخه‌ی قدیمی، نه با یک باگِ
+ * ناخواسته.
+ *
+ * ⭐⭐ چرا `line` برمی‌گرداند؟
+ *
+ * رندرر باید بداند «این سرتیترِ خاص» کدام است. متنش به‌تنهایی کافی نیست،
+ * چون متن تکراری است: «چرا وجود دارد؟» در یک فاز پنج بار می‌آید و هرکدام
+ * `id` متفاوتی می‌گیرند.
+ *
+ * جای‌گزینِ شمارندهٔ مشترک (که باید در حین رندر تغییر کند و در
+ * `StrictMode` دوبار شمرده می‌شد) **شمارهٔ سطر** است: react-markdown
+ * موقعیتِ هر سرتیتر را در متنِ اصلی می‌دهد و این موقعیت در هر رندری
+ * **دقیقاً یکی** است. پس نگاشتِ «سطر ← شناسه» یک جدولِ ثابت است، نه
+ * چیزی که موقع رندر محاسبه شود.
+ *
+ * @param {string} markdown متنِ کاملِ سند
+ * @returns {{text: string, level: number, line: number, id: string}[]}
+ */
+export function extractHeadings(markdown) {
+  const found = []
+  let inFence = false
+  const lines = markdown.split('\n')
+
+  for (let i = 0; i < lines.length; i++) {
+    const line = lines[i]
+
+    // داخلِ بلوکِ کد، `#` سرتیتر نیست — نشانهٔ کامنت است.
+    if (/^\s*(```|~~~)/.test(line)) {
+      inFence = !inFence
+      continue
+    }
+    if (inFence) continue
+
+    const m = line.match(/^(#{1,6})\s+(.+?)\s*#*\s*$/)
+    if (!m) continue
+
+    found.push({
+      text: m[2].trim(),
+      level: m[1].length,
+      line: i + 1, // react-markdown سطر را از ۱ می‌شمارد
+    })
+  }
+
+  // شناسه‌ها را **فقط برای همان سرتیترهایی** می‌سازیم که فهرست هم می‌بیند.
+  // `App.tsx` سطحِ ۱ تا ۳ را نشان می‌دهد، ولی شمارشِ تکراری‌ها باید روی
+  // *همهٔ* سرتیترها باشد تا شماره‌ها بین دو مسیر یکی بمانند.
+  const ids = buildSlugs(found.map((h) => h.text))
+  return found.map((h, i) => ({ ...h, id: ids[i] }))
+}

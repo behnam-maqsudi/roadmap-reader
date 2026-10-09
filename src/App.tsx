@@ -16,7 +16,7 @@ import { SettingsPanel } from './SettingsPanel'
 import { Flashcards } from './Flashcards'
 import { Exercises } from './Exercises'
 import { loadDocs } from './docs'
-import { buildSlugs } from './slug'
+import { extractHeadings } from './slug'
 import { loadAllStudy } from './study'
 import {
   loadProgress,
@@ -31,6 +31,43 @@ import {
 import { loadSettings, saveSettings, FONT_STACKS, DEFAULT_SETTINGS } from './settings'
 import { THEMES, resolveCodeTheme } from './themes'
 import { STORAGE_KEY, type Doc, type Settings, type CardProgress, type StudyContent } from './types'
+
+/**
+ * ⭐ فاصله‌ای که سرتیترِ هدف از بالای ظرفِ اسکرول فاصله می‌گیرد.
+ *
+ * نوارِ ابزارِ بالای صفحه چسبان است و روی متن می‌افتد. اگر این فاصله را
+ * ندهیم، سرتیتر دقیقاً زیرِ نوار گم می‌شود و خواننده فکر می‌کند به بخشِ
+ * اشتباهی رفته — یعنی اسکرول انجام شده ولی **اشتباه به نظر می‌رسد**.
+ * با `styles.css` هم‌خوان است: `scroll-margin-block-start: 4.5rem`.
+ */
+const STICKY_OFFSET = 72
+
+/**
+ * ⭐ نزدیک‌ترین ظرفِ قابلِ اسکرولِ بالای یک عنصر.
+ *
+ * چرا لازم است؟ `scrollIntoView` خودش ظرف را پیدا می‌کند، ولی گاهی
+ * اشتباه می‌کند و کلیک بی‌اثر به نظر می‌رسد. اینجا خودمان پیدا
+ * می‌کنیم تا:
+ *
+ *   ۱) قابلِ **اندازه‌گیری** باشد (تست بتواند بسنجد)
+ *   ۲) با هر چیدمانی که بعداً عوض شود خودش را تطبیق دهد
+ *
+ * اگر هیچ ظرفی نبود (یعنی خودِ پنجره اسکرول می‌خورد) `null` برمی‌گرداند
+ * و فراخوان با `window` انجام می‌شود.
+ */
+function findScrollParent(el: HTMLElement): HTMLElement | null {
+  let node: HTMLElement | null = el.parentElement
+
+  while (node && node !== document.body && node !== document.documentElement) {
+    // فقط عنصری که *واقعاً* اسکرول می‌خورد — نه فقط `overflow` متفاوت
+    const style = getComputedStyle(node)
+    const scrolls = /(auto|scroll|overlay)/.test(style.overflowY)
+    if (scrolls && node.scrollHeight > node.clientHeight) return node
+    node = node.parentElement
+  }
+
+  return null
+}
 
 export default function App() {
   const [docs, setDocs] = useState<Doc[]>([])
@@ -305,30 +342,20 @@ export default function App() {
   }, [study, progress])
 
   // ── فهرست محتوا از سرتیترهای همین سند ──
-  const toc = useMemo(() => {
-    if (!current) return []
-
-    // اول متن و سطحِ هر سرتیدر را درمی‌آوریم…
-    const found: { text: string; level: number }[] = []
-    let inFence = false
-
-    for (const line of current.content.split('\n')) {
-      // نادیده گرفتن # داخل بلوک کد
-      if (line.startsWith('```')) {
-        inFence = !inFence
-        continue
-      }
-      if (inFence) continue
-
-      const m = line.match(/^(#{1,3})\s+(.+)$/)
-      if (m) found.push({ text: m[2].trim(), level: m[1].length })
-    }
-
-    // …بعد شناسه‌ها را با همان تابعی می‌سازیم که رندرر استفاده می‌کند.
-    // ⭐ اگر این دو جدا بودند، کلیک روی فهرست بی‌صدا از کار می‌افتاد.
-    const ids = buildSlugs(found.map((h) => h.text))
-    return found.map((h, i) => ({ id: ids[i], text: h.text, level: h.level }))
-  }, [current])
+  //
+  // ⭐⭐ این و رندرر (`Markdown.tsx`) از **یک تابع** می‌خوانند:
+  // `extractHeadings`. قبلاً هر دو منطقِ خودشان را داشتند و همین باعث
+  // می‌شد که شناسه‌هایشان از هم جدا بیفتند و کلیک روی فهرست بی‌اثر شود.
+  // حالا جدا افتادنشان ساختاری ممکن نیست.
+  const toc = useMemo(
+    () =>
+      current
+        ? extractHeadings(current.content)
+            .filter((h) => h.level <= 3)
+            .map(({ id, text, level }) => ({ id, text, level }))
+        : [],
+    [current],
+  )
 
   if (loading) {
     return (
@@ -479,8 +506,53 @@ export default function App() {
                             // نوارِ بالای صفحه بیرون بیاید.
                             e.preventDefault()
                             const el = document.getElementById(h.id)
-                            if (!el) return
+                            if (!el) {
+                              // ⚠️ نباید بی‌صدا رد شویم. اگر لنگری گم شود،
+                              // کاربر باید بفهمد که این یک اشکال است، نه اینکه
+                              // فکر کند صفحه خراب است.
+                              console.warn(
+                                `[فهرست] سرتیتری با id="${h.id}" پیدا نشد ` +
+                                  `(متن: «${h.text}»)`,
+                              )
+                              return
+                            }
+
                             el.scrollIntoView({ behavior: 'smooth', block: 'start' })
+
+                            // ⭐⭐ اینجاست که خودِ اسکرول انجام می‌شد و باز
+                            // هم انجام می‌شود — ولی یک چیزِ دیگر هم هست که
+                            // اصلاً به اسکرول ربطی ندارد و همان چیزی است که
+                            // کاربر را می‌آزارَد:
+                            //
+                            // `.col-main` (ستونِ متن) خودش یک ظرفِ اسکرولِ
+                            // جداگانه است? نه — ولی اگر روزی چنین شد،
+                            // `scrollIntoView` فقط نزدیک‌ترین ظرفِ قابلِ
+                            // اسکرول را می‌جوشاند و ممکن است آن یکی باشد.
+                            //
+                            // پس روش را صریح و قابلِ اندازه‌گیری می‌کنیم:
+                            // اول می‌فهمیم کدام عنصر واقعاً اسکرول می‌شود،
+                            // بعد مختصات را حساب می‌کنیم، بعد اسکرول می‌کنیم.
+                            // اگر روزی چیدمان عوض شد، این کد خودش را
+                            // تطبیق می‌دهد و لازم نیست حدس بزنیم.
+                            const scroller = findScrollParent(el)
+                            if (scroller) {
+                              const top =
+                                el.getBoundingClientRect().top -
+                                scroller.getBoundingClientRect().top +
+                                scroller.scrollTop -
+                                STICKY_OFFSET
+
+                              scroller.scrollTo({ top, behavior: 'smooth' })
+                            } else {
+                              window.scrollTo({
+                                top:
+                                  window.scrollY +
+                                  el.getBoundingClientRect().top -
+                                  STICKY_OFFSET,
+                                behavior: 'smooth',
+                              })
+                            }
+
                             // نشانی را هم عوض می‌کنیم تا دکمه‌ی «برگشت» مرورگر کار کند
                             window.history.replaceState(null, '', `#${h.id}`)
                           }}

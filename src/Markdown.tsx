@@ -16,7 +16,7 @@ import remarkGfm from 'remark-gfm'
 import rehypeRaw from 'rehype-raw'
 import rehypeHighlight from 'rehype-highlight'
 import type { Settings } from './types'
-import { nextSlug } from './slug'
+import { extractHeadings } from './slug'
 
 /** فهرست زبان‌هایی که هایلایت را برایشان می‌خواهیم. */
 const LANG_ALIASES: Record<string, string> = {
@@ -70,7 +70,7 @@ function CodeBlock({
           <code className={`code-lines ${className ?? ''}`}>
             {lines.map((line, i) => (
               <span className="code-line" key={i}>
-                {line || ' '}
+                {line || ' '}
               </span>
             ))}
           </code>
@@ -89,49 +89,92 @@ function CodeBlock({
   )
 }
 
+/** متن قابل‌مشاهده‌ی یک درخت React — فقط برای تشخیص، نه برای نمایش. */
+function extractText(node: ReactNode): string {
+  if (node === null || node === undefined || typeof node === 'boolean') return ''
+  if (typeof node === 'string' || typeof node === 'number') return String(node)
+  if (Array.isArray(node)) return node.map(extractText).join('')
+  if (isValidElement(node))
+    return extractText((node as { props?: { children?: ReactNode } }).props?.children)
+  return ''
+}
+
+/**
+ * ⭐⭐ جدولِ نگاشتِ «سطرِ سرتیتر ← شناسه».
+ *
+ * این تنها منبعِ حقیقت است. فهرستِ کنارِ صفحه (`App.tsx`) و رندرر (همین
+ * فایل) **هر دو** از همین جدول می‌خوانند، پس جدا افتادنشان ممکن نیست.
+ *
+ * ⭐⭐ چرا این ساختار، و نه یک شمارندهٔ مشترک؟
+ *
+ * چون **رندر باید خالص باشد**. نسخهٔ قبل شمارنده را در حین رندر زیاد می‌کرد:
+ * هر `Heading` که ساخته می‌شد `nextSlug(text, seen)` را صدا می‌زد و `seen`
+ * را عوض می‌کرد. ولی `StrictMode` — که در `main.tsx` هست — رندرِ هر
+ * کامپوننت را **دو بار** اجرا می‌کند. پس هر سرتیتر شمارنده را دو بار مصرف
+ * می‌کرد و `-1` می‌گرفت، در حالی که فهرستِ کنارِ صفحه چنین پسوندی نداشت:
+ *
+ *     فهرست:  #۱-از-کجا-شروع-کنم
+ *     صفحه:   H2#۱-از-کجا-شروع-کنم-1
+ *
+ * `getElementById` شکست می‌خورد و کلیک بی‌صدا از کار می‌افتاد.
+ *
+ * جایگزین: react-markdown به هر سرتیتر `node.position.start.line` می‌دهد،
+ * و این شمارهٔ سطر در هر رندری **دقیقاً یکی** است — چه یک بار رندر شود، چه
+ * هزار بار. پس یک بار برایِ متن، جدول را می‌سازیم و بعد فقط نگاه می‌کنیم.
+ */
+function buildHeadingTable(markdown: string): Map<number, string> {
+  const byLine = new Map<number, string>()
+  for (const h of extractHeadings(markdown)) byLine.set(h.line, h.id)
+  return byLine
+}
+
 /**
  * ⭐ سرتیترِ دارای لنگر.
  *
  * سه کار می‌کند که بدون آن‌ها فهرستِ کنار صفحه کار نمی‌کند:
  *   ۱) `id` می‌گذارد تا لینکِ `#…` آن را پیدا کند
- *   ۲) تکراری‌ها را با شماره از هم جدا می‌کند
+ *   ۲) تکراری‌ها را با شماره از هم جدا می‌کند (از جدول، نه شمارندهٔ مشترک)
  *   ۳) سرتیترِ هدف را زیرِ نوار ابزار قاپ می‌دهد، وگرنه تا وقتی کاربر اسکرول
  *      دستی نکند، سرتیتر زیرِ نوارِ بالای صفحه گم می‌شود
  */
 function Heading({
   level,
-  seen,
   children,
   id: providedId,
+  node,
+  headings,
   ...props
 }: {
   level: 1 | 2 | 3
-  seen: Map<string, number>
   children: ReactNode
   id?: string
+  node?: { position?: { start?: { line?: number } } }
+  /** جدولِ سطر←شناسه که `MarkdownImpl` ساخته است */
+  headings: Map<number, string>
 } & Record<string, unknown>) {
   const Tag = `h${level}` as const
-  const text = extractText(children)
-  const id = providedId ?? nextSlug(text, seen)
+  const line = node?.position?.start?.line
+  const id = providedId ?? (typeof line === 'number' ? headings.get(line) : undefined)
+
+  // اگر سطر را پیدا نکردیم، بی‌صدا لنگرِ غلط نساز — ولی چراغش را روشن کن
+  if (id === undefined) {
+    console.warn(
+      `[سرتیتر] سطر ${String(line)} در جدولِ شناسه‌ها نبود ` +
+        `(متن: «${extractText(children).slice(0, 40)}»)`,
+    )
+  }
 
   return (
     <Tag
       {...props}
       id={id}
       className={
-        typeof props.className === 'string'
-          ? props.className
-          : undefined
+        typeof props.className === 'string' ? props.className : undefined
       }
     >
       {children}
     </Tag>
   )
-}
-
-interface MarkdownProps {
-  content: string
-  settings: Settings
 }
 
 /**
@@ -150,13 +193,9 @@ function isStoryBlock(children: ReactNode): boolean {
   return text.startsWith('🧒')
 }
 
-/** متن قابل‌مشاهده‌ی یک درخت React — فقط برای تشخیص، نه برای نمایش. */
-function extractText(node: ReactNode): string {
-  if (node === null || node === undefined || typeof node === 'boolean') return ''
-  if (typeof node === 'string' || typeof node === 'number') return String(node)
-  if (Array.isArray(node)) return node.map(extractText).join('')
-  if (isValidElement(node)) return extractText((node as { props?: { children?: ReactNode } }).props?.children)
-  return ''
+interface MarkdownProps {
+  content: string
+  settings: Settings
 }
 
 function MarkdownImpl({ content, settings }: MarkdownProps) {
@@ -173,13 +212,13 @@ function MarkdownImpl({ content, settings }: MarkdownProps) {
   )
 
   /**
-   * ⭐ شمارنده‌ی سرتیترهای تکراری، به ترتیبِ ظهور در همین سند.
+   * ⭐⭐ جدولِ شناسه‌ها — یک بار برایِ همین متن، بعد فقط خواندن.
    *
-   * چرا به‌جای ماژولی؟ چون هر سند شمارشِ خودش را دارد. اگر ماژولی بود،
-   * با عوض کردن فاز، شمارنده‌های فاز قبل می‌ماندند و لنگرهای فاز جدید
-   * عددهای بی‌ربط می‌گرفتند.
+   * وابستگی‌اش `content` است، نه `settings`: با عوض کردنِ فونت یا شماره‌خط،
+   * شناسه‌ها نباید دوباره ساخته شوند (و اگر ساخته شوند، باید **یکی** باشند).
+   * محاسبه‌اش ارزان است و فقط با متن عوض می‌شود، پس `useMemo` بی‌ضرر است.
    */
-  const seenSlugs = useMemo(() => new Map<string, number>(), [content])
+  const headings = useMemo(() => buildHeadingTable(content), [content])
 
   /**
    * تعریف کامپوننت‌های markdown.
@@ -193,16 +232,24 @@ function MarkdownImpl({ content, settings }: MarkdownProps) {
       /**
        * ⭐ سرتیترها `id` می‌گیرند تا فهرستِ کنار صفحه کار کند.
        *
-       * این سه کامپوننت قبلاً نداشتند و فهرستِ کنار صفحه غیرکاربردی بود:
-       * کاربر روی سرتیتر می‌زد و هیچ اتفاقی نمی‌افتاد، چون مرورگر دنبالِ
-       * عنصری می‌گشت که اصلاً در صفحه نبود.
-       *
-       * هر سه از یک سازنده‌ی مشترک استفاده می‌کنند تا شناسه‌ی یکسان،
-       * شمارشِ تکراری‌ها، و رفتارِ اسکرول در هر سه یکی باشد.
+       * این سه کامپوننت از یک سازندهٔ مشترک استفاده می‌کنند تا شناسهٔ
+       * یکسان، شمارشِ تکراری‌ها، و رفتارِ اسکرول در هر سه یکی باشد.
        */
-      h1: ({ children, ...props }) => <Heading level={1} seen={seenSlugs} {...props}>{children}</Heading>,
-      h2: ({ children, ...props }) => <Heading level={2} seen={seenSlugs} {...props}>{children}</Heading>,
-      h3: ({ children, ...props }) => <Heading level={3} seen={seenSlugs} {...props}>{children}</Heading>,
+      h1: ({ children, node, ...props }) => (
+        <Heading level={1} node={node} headings={headings} {...props}>
+          {children}
+        </Heading>
+      ),
+      h2: ({ children, node, ...props }) => (
+        <Heading level={2} node={node} headings={headings} {...props}>
+          {children}
+        </Heading>
+      ),
+      h3: ({ children, node, ...props }) => (
+        <Heading level={3} node={node} headings={headings} {...props}>
+          {children}
+        </Heading>
+      ),
 
       code: ({ className, children, ...props }) => {
         // اگر والد <pre> باشد، بلوک کد است؛ در غیر این صورت کد درون‌خطی
@@ -273,17 +320,22 @@ function MarkdownImpl({ content, settings }: MarkdownProps) {
         )
       },
     }),
-    [settings.showLineNumbers, settings.codeWrap, settings.tableBorder],
+    // ⭐⭐ وابستگی‌ها اینجا **کامل** هستند و این خودش نیمی از درستیِ کار است.
+    //
+    // `components` داخلِ خودش `headings` را می‌بندد. اگر `headings` در
+    // وابستگی‌ها نبود، با عوض کردنِ فاز، React بستهٔ کهنه را نگه می‌داشت و
+    // سرتیترهای فازِ جدید با جدولِ فازِ قبلی شماره‌گذاری می‌شدند.
+    //
+    // (این باگ را قبلاً داشتیم و درست شد؛ ولی ریشهٔ اصلیِ به‌هم‌ریختگیِ
+    // لنگرها آن بود، نه این. آن یکی جداگانه در `Heading` حل شد.)
+    [headings, settings.showLineNumbers, settings.codeWrap, settings.tableBorder],
   )
 
   return (
     <div className="prose" dir={settings.direction}>
       <ReactMarkdown
         remarkPlugins={[remarkGfm]}
-        rehypePlugins={[
-          rehypeRaw,
-          [rehypeHighlight, highlightOptions],
-        ]}
+        rehypePlugins={[rehypeRaw, [rehypeHighlight, highlightOptions]]}
         components={components}
       >
         {content}
