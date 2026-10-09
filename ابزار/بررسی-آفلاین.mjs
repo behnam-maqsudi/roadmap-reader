@@ -30,16 +30,43 @@ const pass = (msg) => console.log(`  ✓ ${msg}`)
 // ── ۱) سورس: هیچ لینک بیرونی در فایل‌های اجرایی ──
 console.log('\n۱) سورس — لینک بیرونی')
 
-const sourceFiles = readdirSync(join(root, 'src')).filter((f) =>
+/**
+ * ⭐ پیمایشِ بازگشتیِ `src/`.
+ *
+ * پیش از نسخهٔ ۲، این اسکریپت فقط `readdirSync(join(root,'src'))` می‌کرد —
+ * یعنی **فقط** فایل‌های ترازِ اول را می‌دید. با اضافه شدن `src/v2/` و
+ * `src/v2/components/`، آن پوشه‌ها بی‌صدا از قلم می‌افتادند و اسکریپت با
+ * خوش‌بینی سبز می‌شد در حالی که هیچ‌چیز از نسخهٔ ۲ را ندیده بود.
+ * این سکوتِ خطرناک است: سندِ «اپ آفلاین است» باید واقعاً همه را دیده باشد.
+ */
+function walk(dir, out = []) {
+  for (const entry of readdirSync(dir)) {
+    const p = join(dir, entry)
+    if (statSync(p).isDirectory()) walk(p, out)
+    else out.push(p)
+  }
+  return out
+}
+
+const sourceFiles = walk(join(root, 'src')).filter((f) =>
   /\.(ts|tsx|css)$/.test(f),
 )
-sourceFiles.push('../index.html')
+
+/**
+ * ⭐ هر دو صفحهٔ ورودی، نه فقط نسخهٔ ۱.
+ *
+ * `v2.html` یک فایل مستقل است با `<script>` مخصوصِ خودش؛ اگر آن را
+ * نمی‌خوانیم، یک CDN یا فونتِ بیرونی که آنجا اضافه شود بی‌صدا از قلم
+ * در می‌رود.
+ */
+const htmlEntries = ['index.html', 'v2.html'].filter((f) =>
+  existsSync(join(root, f)),
+)
+for (const f of htmlEntries) sourceFiles.push(join(root, f))
 
 let found = 0
-for (const rel of sourceFiles) {
-  const path = rel.startsWith('..')
-    ? join(root, 'index.html')
-    : join(root, 'src', rel)
+for (const path of sourceFiles) {
+  const rel = path.replace(root + '\\', '').replace(root + '/', '')
   const text = readFileSync(path, 'utf8')
 
   // دنبالای «https://» یا «http://» بگرد، ولی نه داخل کامنت‌های توضیحی
@@ -57,10 +84,19 @@ if (found === 0) pass(`هیچ لینک بیرونی در ${sourceFiles.length} �
 // ── ۲) فونت‌ها ──
 console.log('\n۲) فونت‌ها')
 
-const css = readFileSync(join(root, 'src', 'styles.css'), 'utf8')
-const fontRefs = [...css.matchAll(/url\(['"]?(\/fonts\/[^)'"]+)/g)].map(
-  (m) => m[1],
-)
+/**
+ * ⭐ فونت‌ها را از **همهٔ** CSSها می‌خوانیم، نه فقط `src/styles.css`.
+ *
+ * نسخهٔ ۲ `src/v2/styles.css` خودش `@font-face`هایش را تعریف می‌کند و
+ * عمداً هیچ import‌ای از نسخهٔ ۱ ندارد. اگر فقط CSS نسخهٔ ۱ را بخوانیم،
+ * آن ۹ تعریف نامرئی می‌مانند و خرابیِ یکی از آن‌ها بی‌صدا رد می‌شود.
+ */
+const cssFiles = sourceFiles.filter((f) => f.endsWith('.css'))
+const fontRefs = cssFiles.flatMap((f) => {
+  const text = readFileSync(f, 'utf8')
+  return [...text.matchAll(/url\(['"]?(\/fonts\/[^)'"]+)/g)].map((m) => m[1])
+})
+if (cssFiles.length === 0) fail('هیچ فایل CSS پیدا نشد')
 
 if (fontRefs.length === 0) fail('هیچ فونتی در CSS تعریف نشده')
 
@@ -109,12 +145,6 @@ const dist = join(root, 'dist')
 if (!existsSync(dist)) {
   console.log('  ⓘ هنوز build نشده — این بخش رد شد (اول npm run build بزن)')
 } else {
-  const walk = (dir) =>
-    readdirSync(dir).flatMap((f) => {
-      const p = join(dir, f)
-      return statSync(p).isDirectory() ? walk(p) : [p]
-    })
-
   const bundles = walk(dist).filter((f) => /\.(js|css|html)$/.test(f))
 
   /**
@@ -165,20 +195,42 @@ if (!existsSync(dist)) {
   // این مهم‌ترین چک است. اگر یکی از این‌ها گم باشد، در قطعی اینترنت صفحه
   // سفید یا ناقص بالا می‌آید — و از بیرون معلوم نمی‌شود.
   console.log('\n۴) هر چیزی که صفحه لازم دارد روی دیسک هست؟')
-  const html = readFileSync(join(dist, 'index.html'), 'utf8')
-  const refs = [
-    ...html.matchAll(/(?:src|href)\s*=\s*["']([^"':]+)["']/g),
-  ].map((m) => m[1])
 
+  /**
+   * ⭐ هر دو صفحه: `index.html` (نسخهٔ ۱) و `v2.html` (نسخهٔ ۲).
+   *
+   * قبلاً فقط نسخهٔ ۱ خوانده می‌شد. یعنی اگر باندلِ نسخهٔ ۲ گم می‌شد یا
+   * فونتی کپی نمی‌شد، این اسکریپت سبز می‌ماند و کاربر در نسخهٔ ۲ صفحهٔ
+   * سفید می‌دید.
+   */
+  let totalRefs = 0
   let missingAssets = 0
-  for (const ref of refs) {
-    if (ref.startsWith('data:') || ref.startsWith('http')) continue
-    if (!existsSync(join(dist, ref))) {
-      fail(`فایل لازم پیدا نشد: ${ref}`)
-      missingAssets += 1
+  const distEntries = htmlEntries.filter((f) => existsSync(join(dist, f)))
+
+  if (distEntries.length === 0) {
+    fail('هیچ صفحهٔ HTML در dist نیست — بیلد ناقص است')
+  }
+
+  for (const entry of distEntries) {
+    const html = readFileSync(join(dist, entry), 'utf8')
+    const refs = [
+      ...html.matchAll(/(?:src|href)\s*=\s*["']([^"':]+)["']/g),
+    ].map((m) => m[1])
+    totalRefs += refs.length
+
+    for (const ref of refs) {
+      if (ref.startsWith('data:') || ref.startsWith('http')) continue
+      if (!existsSync(join(dist, ref))) {
+        fail(`${entry}: فایل لازم پیدا نشد: ${ref}`)
+        missingAssets += 1
+      }
     }
   }
-  if (missingAssets === 0) pass(`${refs.length} ارجاع صفحه، همه موجود`)
+  if (missingAssets === 0) {
+    pass(
+      `${totalRefs} ارجاع در ${distEntries.length} صفحه (${distEntries.join('، ')}) — همه موجود`,
+    )
+  }
 
   // فونت‌ها باید کپی شده باشند
   const distFonts = join(dist, 'fonts')

@@ -1,0 +1,8 @@
+sum 2501 mean 250.10
+slow(812,1204) 2016 pct 80.6%
+fast n 8 fastSum 485 fastMean 60.6
+sorted 38, 39, 41, 45, 52, 67, 76, 127, 812, 1204
+99 downtime h 87.60
+99.9 downtime h 8.76
+99.99 downtime h 0.88
+99.999 downtime h 0.09

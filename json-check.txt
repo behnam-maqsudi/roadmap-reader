@@ -1,0 +1,6 @@
+فاز-۰۰.json num=0 n=6
+  BAD predict fields p00-q4
+فاز-۰۱.json num=1 n=6
+  BAD predict fields p01-q2
+فاز-۰۲.json num=2 n=7
+PROBLEMS: 2

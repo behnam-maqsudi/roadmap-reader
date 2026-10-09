@@ -1,0 +1,57 @@
+<!doctype html>
+<html lang="fa" dir="rtl">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>خوانندهٔ نقشهٔ راه — نسخهٔ ۲</title>
+    <meta
+      name="description"
+      content="نسخهٔ دوم خوانندهٔ نقشهٔ راه بک‌اند و مهندسی AI — با کارت‌های رنگی، نمودار، و تمرین‌های تعاملی"
+    />
+
+    <!-- ⭐ فونت‌ها همان فایل‌های محلی نسخه‌ی ۱ هستند (public/fonts/).
+         عمداً هیچ لینک CDN اینجا نیست تا اپ آفلاین هم کار کند. -->
+    <link
+      rel="preload"
+      href="/fonts/vazirmatn-arabic.woff2"
+      as="font"
+      type="font/woff2"
+      crossorigin
+    />
+
+    <!--
+      ⭐ تم را قبل از رندر اعمال کن تا صفحه "فلش" نخورد.
+
+      ⚠️ تفاوتِ مهم با نسخه‌ی ۱: کلیدِ ذخیره‌سازیِ نسخه‌ی ۲ **جداست**
+      (`roadmap-reader-v2-*`). دلیلش این است که اگر هم‌کلید بود، تنظیماتِ
+      Tailwindیِ نسخه‌ی ۲ با چیدمان نسخه‌ی ۱ قاطی می‌شد و هر دو خراب
+      می‌شدند — مثلاً عرض ستون یا اندازه‌ی فونت برای هر دو نوشته می‌شد.
+
+      ولی خواندنِ **تم** از تنظیماتِ نسخه‌ی ۱ انجام می‌شود، تا اگر کاربر تم
+      تیره را در نسخه‌ی ۱ انتخاب کرده بود، نسخه‌ی ۲ هم با همان تم باز شود و
+      لحظه‌ای صفحهٔ سفید چشمک نزند.
+    -->
+    <script>
+      var DARK = ['dark', 'nord', 'dracula', 'high-contrast']
+      try {
+        var v1 = localStorage.getItem('roadmap-reader-settings')
+        if (v1) {
+          var t = JSON.parse(v1).theme
+          if (DARK.indexOf(t) !== -1) {
+            document.documentElement.classList.add('dark')
+            document.documentElement.dataset.theme = t
+          } else if (t) {
+            document.documentElement.dataset.theme = t
+          }
+        } else if (matchMedia('(prefers-color-scheme: dark)').matches) {
+          document.documentElement.classList.add('dark')
+          document.documentElement.dataset.theme = 'dark'
+        }
+      } catch (e) {}
+    </script>
+  </head>
+  <body>
+    <div id="root"></div>
+    <script type="module" src="/src/v2/main.tsx"></script>
+  </body>
+</html>

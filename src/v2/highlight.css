@@ -1,0 +1,105 @@
+/**
+ * highlight.css — رنگ‌آمیزیِ کدِ نسخهٔ ۲
+ *
+ * ⭐ چرا این فایل جدا و کپیِ دستی است؟
+ *
+ * چون نسخهٔ ۱ `src/highlight-themes.css` را import می‌کند و آن فایل از
+ * صفتِ `html[data-code-theme='…']` استفاده می‌کند. اگر نسخهٔ ۲ هم آن را
+ * import می‌کرد، هر دو روی یک صفحه نبودند ولی **در build** هر دو در
+ * یک باندل می‌آمدند و قاعده‌هایشان به هم قاطی می‌شد.
+ *
+ * پس اینجا یک نسخهٔ کوچک‌تر و تازه می‌سازیم: فقط سه پالت (روشن، تیره،
+ * و تم کاغذی) که با متغیرهای رنگِ خودِ نسخهٔ ۲ هماهنگ‌اند.
+ *
+ * همه‌چیز از متغیر می‌خواند، پس تغییر تم خودکار رنگ‌ها را عوض می‌کند.
+ */
+
+.hljs {
+  color: var(--code-text);
+  background: transparent;
+}
+
+/* کامنت — خاکستری، کم‌جاذبه */
+.hljs-comment,
+.hljs-quote {
+  color: var(--text-faint);
+  font-style: italic;
+}
+
+/* کلیدواژه — رنگِ تأکید */
+.hljs-keyword,
+.hljs-selector-tag,
+.hljs-doctag,
+.hljs-formula {
+  color: var(--key-bar);
+  font-weight: 600;
+}
+
+/* رشته — سبز */
+.hljs-string,
+.hljs-regexp,
+.hljs-addition,
+.hljs-attribute,
+.hljs-meta .hljs-string {
+  color: var(--ok-bar);
+}
+
+/* عدد و ثابت */
+.hljs-number,
+.hljs-literal,
+.hljs-variable,
+.hljs-template-variable,
+.hljs-tag .hljs-attr {
+  color: var(--warn-bar);
+}
+
+/* تابع */
+.hljs-title,
+.hljs-title.function_,
+.hljs-section {
+  color: var(--note-bar);
+  font-weight: 600;
+}
+
+/* نوع و کلاس */
+.hljs-type,
+.hljs-class .hljs-title,
+.hljs-built_in,
+.hljs-title.class_,
+.hljs-selector-class {
+  color: var(--tip-bar);
+}
+
+/* نام‌های ثابت (true / null) */
+.hljs-symbol,
+.hljs-bullet,
+.hljs-link {
+  color: var(--look-bar);
+}
+
+/* نام‌های متغیر و ویژگی‌ها */
+.hljs-name,
+.hljs-attr,
+.hljs-selector-id,
+.hljs-selector-class_ {
+  color: var(--code-text);
+}
+
+/* نشانه‌گذاری */
+.hljs-punctuation,
+.hljs-operator {
+  color: var(--text-muted);
+}
+
+/* ⚠️ زیرخط‌قرمزی زیر چیزی که بهتر است نباشد */
+.hljs-deletion {
+  color: var(--bad-bar);
+}
+
+/* ⭐ کلیدواژه‌های درشت در پیام‌های کنسول */
+.hljs-strong {
+  font-weight: 700;
+}
+.hljs-emphasis {
+  font-style: italic;
+}

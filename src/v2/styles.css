@@ -1,0 +1,650 @@
+/**
+ * styles.css — لایهٔ پایهٔ نسخهٔ ۲
+ *
+ * ⭐⭐ سه تصمیم که این فایل می‌گیرد
+ *
+ * ۱) **فونت‌ها دست‌نخورده از نسخهٔ ۱ قرض گرفته شده‌اند.** همان
+ *    `@font-face`هایی که در `src/styles.css` نسخهٔ ۱ هستند، اینجا هم
+ *    تکرار شده‌اند — با همان `unicode-range`ها. این کار عمدی است:
+ *    اگر نسخهٔ ۱ را هم به این فایل `import` کنیم، CSS یک بار دیگر پخش می‌شود
+ *    و `public/fonts` دو بار کپی می‌شود. تکرارِ متنِ `@font-face` ارزان است
+ *    (۱۰ خط) ولی تضمین می‌کند نسخهٔ ۲ **مستقل** از نسخهٔ ۱ بالا می‌آید.
+ *
+ * ۲) **راست‌به‌چپ با خاصیت‌های منطقی.** نسخهٔ ۱ در چند جا از
+ *    `left`/`right` استفاده می‌کرد که در RTL برعکس می‌شود. اینجا همه‌جا
+ *    از `inline-start`/`inline-end` استفاده می‌شود تا یک بار برای همیشه
+ *    درست باشد، حتی اگر کاربر جهت را به چپ‌چین عوض کند.
+ *
+ * ۳) **هیچ درخواست شبکه‌ای.** هیچ `@import` بیرونی، هیچ فونتِ CDN.
+ *    اسکریپت `ابزار/بررسی-آفلاین.mjs` این را می‌سنجد.
+ */
+
+/* ═══════════════════════════════════════════════════════════════
+   ۰) Tailwind
+   ═══════════════════════════════════════════════════════════════ */
+
+/*
+ * ⭐ اولین خطِ این فایل. `@import 'tailwindcss'` ابزارهای Tailwind را
+ * می‌آورد، و چون این فایل فقط در نسخهٔ ۲ import می‌شود، **هیچ اثری روی
+ * نسخهٔ ۱ ندارد**. فایل `src/styles.css` نسخهٔ ۱ این خط را ندارد.
+ *
+ * `@custom-variant` یعنی «وقتی کلاس `dark` روی `<html>` بود، ابزارهای
+ * `dark:` فعال شوند». این کلاس را در `v2.html` قبل از رندر می‌گذاریم تا
+ * صفحه فلش نزند.
+ */
+@import 'tailwindcss';
+
+@custom-variant dark (&:where(.dark, .dark *));
+
+/* ═══════════════════════════════════════════════════════════════
+   ۱) فونت‌های محلی — عیناً از نسخهٔ ۱
+   ═══════════════════════════════════════════════════════════════ */
+
+@font-face {
+  font-family: 'Vazirmatn';
+  font-style: normal;
+  font-weight: 100 900;
+  font-display: swap;
+  src: url('/fonts/vazirmatn-arabic.woff2') format('woff2');
+  unicode-range: U+0600-06FF, U+0750-077F, U+08A0-08FF, U+FB50-FDFF, U+FE70-FEFF;
+}
+@font-face {
+  font-family: 'Vazirmatn';
+  font-style: normal;
+  font-weight: 100 900;
+  font-display: swap;
+  src: url('/fonts/vazirmatn-latin.woff2') format('woff2');
+  unicode-range: U+0000-00FF, U+2000-206F, U+2190-21BB, U+2212, U+2215;
+}
+@font-face {
+  font-family: 'Vazirmatn';
+  font-style: normal;
+  font-weight: 100 900;
+  font-display: swap;
+  src: url('/fonts/vazirmatn-latin-ext.woff2') format('woff2');
+  unicode-range: U+0100-02AF, U+1E00-1EFF, U+20A0-20CF, U+2C60-2C7F;
+}
+
+@font-face {
+  font-family: 'IRANSans';
+  font-style: normal;
+  font-weight: 300;
+  font-display: swap;
+  src: url('/fonts/IRANSansWeb_Light.woff2') format('woff2');
+  unicode-range: U+0600-06FF, U+0750-077F, U+08A0-08FF, U+FB50-FDFF, U+FE70-FEFF;
+}
+@font-face {
+  font-family: 'IRANSans';
+  font-style: normal;
+  font-weight: 400;
+  font-display: swap;
+  src: url('/fonts/IRANSansWeb.woff2') format('woff2');
+  unicode-range: U+0600-06FF, U+0750-077F, U+08A0-08FF, U+FB50-FDFF, U+FE70-FEFF;
+}
+@font-face {
+  font-family: 'IRANSans';
+  font-style: normal;
+  font-weight: 500;
+  font-display: swap;
+  src: url('/fonts/IRANSansWeb_Medium.woff2') format('woff2');
+  unicode-range: U+0600-06FF, U+0750-077F, U+08A0-08FF, U+FB50-FDFF, U+FE70-FEFF;
+}
+@font-face {
+  font-family: 'IRANSans';
+  font-style: normal;
+  font-weight: 700;
+  font-display: swap;
+  src: url('/fonts/IRANSansWeb_Bold.woff2') format('woff2');
+  unicode-range: U+0600-06FF, U+0750-077F, U+08A0-08FF, U+FB50-FDFF, U+FE70-FEFF;
+}
+
+@font-face {
+  font-family: 'JetBrains Mono';
+  font-style: normal;
+  font-weight: 100 800;
+  font-display: swap;
+  src: url('/fonts/jetbrains-mono-latin.woff2') format('woff2');
+  unicode-range: U+0000-00FF, U+0131, U+0152-0153, U+02BB-02BC, U+02C6, U+02DA,
+    U+02DC, U+0304, U+0308, U+0329, U+2000-206F, U+20AC, U+2122, U+2191, U+2193,
+    U+2212, U+2215, U+FEFF, U+FFFD;
+}
+@font-face {
+  font-family: 'JetBrains Mono';
+  font-style: normal;
+  font-weight: 100 800;
+  font-display: swap;
+  src: url('/fonts/jetbrains-mono-latin-ext.woff2') format('woff2');
+  unicode-range: U+0100-02BA, U+02BD-02C5, U+02C7-02CC, U+02CE-02D7, U+02DD-02FF,
+    U+0304, U+0308, U+0329, U+1D00-1DBF, U+1E00-1E9F, U+1EF2-1EFF, U+2020,
+    U+20A0-20AB, U+20AD-20C0, U+2113, U+2C60-2C7F, U+A720-A7FF;
+}
+@font-face {
+  font-family: 'JetBrains Mono';
+  font-style: normal;
+  font-weight: 100 800;
+  font-display: swap;
+  src: url('/fonts/jetbrains-mono-cyrillic.woff2') format('woff2');
+  unicode-range: U+0301, U+0400-045F, U+0490-0491, U+04B0-04B1, U+2116;
+}
+@font-face {
+  font-family: 'JetBrains Mono';
+  font-style: normal;
+  font-weight: 100 800;
+  font-display: swap;
+  src: url('/fonts/jetbrains-mono-cyrillic-ext.woff2') format('woff2');
+  unicode-range: U+0460-052F, U+1C80-1C88, U+20B4, U+2DE0-2DFF, U+A640-A69F,
+    U+FE2E-FE2F;
+}
+@font-face {
+  font-family: 'JetBrains Mono';
+  font-style: normal;
+  font-weight: 100 800;
+  font-display: swap;
+  src: url('/fonts/jetbrains-mono-greek.woff2') format('woff2');
+  unicode-range: U+0370-0377, U+037A-037F, U+0384-038A, U+038C, U+038E-03A1,
+    U+03A3-03FF;
+}
+
+/* ═══════════════════════════════════════════════════════════════
+   ۲) پایه — ریشه و تنظیمات تایپوگرافی
+   ═══════════════════════════════════════════════════════════════ */
+
+@layer theme, base, components, utilities;
+
+@layer theme {
+  /*
+   * ⭐ توکن‌های Tailwind. این‌ها «رنگ‌های خام» نیستند — فقط نام‌گذاری
+   * هستند. رنگ واقعی هر تم پایین‌تر تعریف می‌شود تا یک تم، همهٔ کامپوننت‌ها
+   * را با هم عوض کند (کلاس `dark` یا صفت `data-theme`).
+   */
+
+  --font-sans: 'Vazirmatn', system-ui, sans-serif;
+  --font-iransans: 'IRANSans', 'Vazirmatn', system-ui, sans-serif;
+  --font-mono: 'JetBrains Mono', 'Cascadia Code', Consolas, monospace;
+
+  /* گامِ اندازه — rem است، چون متن فارسی به اندازهٔ پایه حساس است */
+  --radius-card: 1rem;
+  --radius-inner: 0.65rem;
+
+  /*
+   * ⭐ رنگِ هر فاز. هر فاز رنگِ خودش را دارد و کل رابط با همان عوض می‌شود.
+   * این چیزی است که نسخهٔ ۱ نداشت و باعث می‌شود فاز ۰۱ در ذهنِ کاربر
+   * با فاز ۰۵ یکی نباشد.
+   */
+  --phase-0: #e05252;
+  --phase-1: #e08a2e;
+  --phase-2: #b8892e;
+  --phase-3: #5a9e6f;
+  --phase-4: #3d8fb0;
+  --phase-5: #5a72c4;
+  --phase-6: #8a5fc0;
+  --phase-7: #c0526e;
+  --phase-8: #4a8f9e;
+  --phase-9: #7a8f3d;
+  --phase-10: #b0552e;
+  --phase-11: #2f8f7a;
+  --phase-12: #9a5ea8;
+  --phase-13: #4f6f9e;
+  --phase-guide: #8a6d3b;
+}
+
+@layer base {
+  :root {
+    /* پیش‌فرضِ تم روشن — رنگ‌های گرم، نه سفیدِ سرد */
+    --bg: #faf7f2;
+    --surface: #ffffff;
+    --surface-2: #f4efe6;
+    --chrome: #fffdf9;
+    --text: #2c2723;
+    --text-muted: #6b6058;
+    --text-faint: #9a8f86;
+    --border: #e6ddd0;
+    --border-strong: #d4c7b5;
+    --link: #a33c3c;
+    --link-hover: #7f2a2a;
+    --accent: #a33c3c;
+    --accent-hover: #7f2a2a;
+    --accent-text: #ffffff;
+    --code-bg: #f7f2ea;
+    --code-text: #33302c;
+    --code-inline-bg: #f0e7d9;
+    --table-stripe: #f8f3ea;
+
+    /* رنگِ هر کارتِ آموزشی */
+    --story-bg: #fdf6e3;
+    --story-bar: #d4a017;
+    --note-bg: #eef4fb;
+    --note-bar: #3d7fbf;
+    --warn-bg: #fdf1e3;
+    --warn-bar: #d98324;
+    --ok-bg: #edf6ef;
+    --ok-bar: #4a8f5b;
+    --bad-bg: #fcefef;
+    --bad-bar: #c94f4f;
+    --goal-bg: #f2eef8;
+    --goal-bar: #7a5aa8;
+    --key-bg: #eff3f8;
+    --key-bar: #4a6f96;
+    --tip-bg: #fdf7e8;
+    --tip-bar: #b8912c;
+    --test-bg: #eef7f5;
+    --test-bar: #3d8f80;
+    --look-bg: #f0f3f8;
+    --look-bar: #5a6f9e;
+
+    --shadow-sm: 0 1px 2px rgb(60 45 30 / 0.06);
+    --shadow-card: 0 2px 8px rgb(60 45 30 / 0.07);
+    --shadow-pop: 0 8px 28px rgb(60 45 30 / 0.14);
+
+    color-scheme: light;
+  }
+
+  /*
+   * ⭐⭐ تم تیره.
+   *
+   * `data-theme` روی `<html>` ست می‌شود (نام تم)، و کلاس `dark` هم ست می‌شود
+   * تا Tailwind ابزارهای `dark:` را بفهمد. رنگ‌های تیره **گرم** انتخاب
+   * شده‌اند نه خاکستریِ سرد — چون متن فارسیِ بلند روی زمینهٔ سرد خسته‌کننده است.
+   */
+  :root.dark,
+  :root[data-theme='dark'] {
+    --bg: #1b1815;
+    --surface: #24201c;
+    --surface-2: #2c2723;
+    --chrome: #211d1a;
+    --text: #ece4da;
+    --text-muted: #b0a49a;
+    --text-faint: #7d7268;
+    --border: #3a332d;
+    --border-strong: #4d443c;
+    --link: #e5928c;
+    --link-hover: #f2b0aa;
+    --accent: #d96b62;
+    --accent-hover: #e5837a;
+    --accent-text: #1b1815;
+    --code-bg: #201c19;
+    --code-text: #ece4da;
+    --code-inline-bg: #322b26;
+    --table-stripe: #292420;
+
+    /* کارت‌ها در تم تیره باید «کم‌نور» شوند نه اینکه روشن‌تر از متن شوند */
+    --story-bg: #2e2716;
+    --story-bar: #e0b64a;
+    --note-bg: #16242f;
+    --note-bar: #6aa5e0;
+    --warn-bg: #2f2317;
+    --warn-bar: #e8a355;
+    --ok-bg: #17291c;
+    --ok-bar: #6fbf83;
+    --bad-bg: #2e1a1a;
+    --bad-bar: #e07070;
+    --goal-bg: #241f2e;
+    --goal-bar: #a98ad6;
+    --key-bg: #1c2430;
+    --key-bar: #7fa3d0;
+    --tip-bg: #2b2617;
+    --tip-bar: #d4b04a;
+    --test-bg: #152724;
+    --test-bar: #5fb3a5;
+    --look-bg: #1e2330;
+    --look-bar: #8fa3d6;
+
+    --shadow-sm: 0 1px 2px rgb(0 0 0 / 0.3);
+    --shadow-card: 0 2px 10px rgb(0 0 0 / 0.35);
+    --shadow-pop: 0 8px 28px rgb(0 0 0 / 0.5);
+
+    color-scheme: dark;
+  }
+
+  * {
+    border-color: var(--border);
+  }
+
+  html {
+    /* ⭐ فونت‌ها و اندازه از تنظیمات کنترل می‌شود (مثل نسخهٔ ۱)، ولی
+       نسخهٔ ۲ آن‌ها را با نام‌های تازه می‌خواند تا با هم قاطی نشوند. */
+    font-size: var(--app-font-size, 17px);
+    scroll-behavior: smooth;
+  }
+
+  body {
+    margin: 0;
+    background: var(--bg);
+    color: var(--text);
+    font-family: var(--app-font-family, 'Vazirmatn');
+    font-weight: var(--app-font-weight, 400);
+    line-height: var(--app-line-height, 1.9);
+    letter-spacing: var(--app-letter-spacing, 0);
+    -webkit-font-smoothing: antialiased;
+    text-rendering: optimizeLegibility;
+  }
+
+  /* اعدادِ لاتین در متن فارسی بهتر است هم‌عرض باشند تا جدول‌ها به‌هم نریزند */
+  .tabular {
+    font-variant-numeric: tabular-nums;
+  }
+}
+
+@layer components {
+  /* کد همیشه چپ‌به‌راست است، حتی در صفحهٔ راست‌به‌چپ */
+  .code-block {
+    direction: ltr;
+    text-align: left;
+    font-family: var(--font-mono);
+    font-size: var(--app-code-font-size, 14px);
+    line-height: 1.75;
+    background: var(--code-bg);
+    color: var(--code-text);
+    border: 1px solid var(--border);
+    border-radius: var(--radius-inner);
+    padding: 1rem 1.15rem;
+    overflow-x: auto;
+    position: relative;
+    margin-block: var(--app-code-spacing, 1.4em);
+  }
+
+  .code-inline {
+    direction: ltr;
+    unicode-bidi: embed;
+    font-family: var(--font-mono);
+    font-size: 0.9em;
+    background: var(--code-inline-bg);
+    border-radius: 5px;
+    padding: 0.12em 0.38em;
+    white-space: nowrap;
+  }
+
+  /*
+   * ⭐⭐ کارت‌های آموزشی — هستهٔ «جذاب‌تر شدنِ» متن.
+   *
+   * چرا این‌قدر مهم است؟ در متنِ درس ۱۱۳ تا 💡 و ۸۳ تا ⚠️ و ۱۸۰ تا ✅
+   * هست، ولی در نسخهٔ ۱ **هیچ استایلی** نداشتند و مثل نقل‌قولِ معمولی
+   * درمی‌آمدند. اینجا هر ایموجی رنگ و کادرِ خودش را می‌گیرد، پس خواننده
+   * با یک نگاه می‌فهمد این «نکته» است یا «هشدار».
+   *
+   * ساختارِ HTML تولیدشده در `Markdown.tsx` نسخهٔ ۲:
+   *   <aside class="callout callout-note" data-icon="💡">
+   *     <div class="callout-head"><span class="callout-title">نکته</span></div>
+   *     <div class="callout-body">…</div>
+   *   </aside>
+   */
+  .callout {
+    display: grid;
+    grid-template-columns: auto 1fr;
+    gap: 0.85rem;
+    margin-block: var(--app-paragraph-spacing, 1.1em);
+    padding: 1rem 1.15rem;
+    border-radius: var(--radius-card);
+    background: var(--callout-bg, var(--surface));
+    border-inline-start: 4px solid var(--callout-bar, var(--border-strong));
+    box-shadow: var(--shadow-sm);
+  }
+
+  .callout-icon {
+    font-size: 1.5rem;
+    line-height: 1.4;
+    filter: saturate(0.85);
+    /* آیکون نباید در حالت RTL جابه‌جا شود */
+    user-select: none;
+  }
+
+  .callout-title {
+    display: block;
+    font-weight: 700;
+    font-size: 0.94em;
+    color: var(--callout-bar);
+    margin-block-end: 0.3rem;
+    letter-spacing: 0.01em;
+  }
+
+  .callout-body > *:first-child {
+    margin-block-start: 0;
+  }
+  .callout-body > *:last-child {
+    margin-block-end: 0;
+  }
+
+  .callout-story {
+    --callout-bg: var(--story-bg);
+    --callout-bar: var(--story-bar);
+    font-size: 1.02em;
+  }
+  .callout-note {
+    --callout-bg: var(--note-bg);
+    --callout-bar: var(--note-bar);
+  }
+  .callout-warn {
+    --callout-bg: var(--warn-bg);
+    --callout-bar: var(--warn-bar);
+  }
+  .callout-ok {
+    --callout-bg: var(--ok-bg);
+    --callout-bar: var(--ok-bar);
+  }
+  .callout-bad {
+    --callout-bg: var(--bad-bg);
+    --callout-bar: var(--bad-bar);
+  }
+  .callout-goal {
+    --callout-bg: var(--goal-bg);
+    --callout-bar: var(--goal-bar);
+  }
+  .callout-key {
+    --callout-bg: var(--key-bg);
+    --callout-bar: var(--key-bar);
+  }
+  .callout-tip {
+    --callout-bg: var(--tip-bg);
+    --callout-bar: var(--tip-bar);
+  }
+  .callout-test {
+    --callout-bg: var(--test-bg);
+    --callout-bar: var(--test-bar);
+  }
+  .callout-look {
+    --callout-bg: var(--look-bg);
+    --callout-bar: var(--look-bar);
+  }
+
+  /* داستان بزرگ‌تر و آرام‌تر است — این لایهٔ روایتِ درس است */
+  .callout-story .callout-title {
+    font-size: 1em;
+  }
+
+  /*
+   * ⭐ نمودارِ متنی (ASCII).
+   *
+   * در محتوا ۱۸ بلوک ```text وجود دارد که نمودارِ جریان و معماری هستند.
+   * در نسخهٔ ۱ اینها فقط متنِ مونواسپیس بودند. اینجا پشت‌زمینهٔ متمایز و
+   * برچسبِ «نمودار» می‌گیرند تا معلوم باشد این را باید **کشید**، نه خواند.
+   */
+  .diagram {
+    margin-block: var(--app-code-spacing, 1.4em);
+    border-radius: var(--radius-inner);
+    border: 1px dashed var(--border-strong);
+    background: var(--surface-2);
+    padding: 0.9rem 1rem;
+    position: relative;
+    overflow-x: auto;
+  }
+
+  .diagram-label {
+    position: absolute;
+    inset-block-start: -0.6rem;
+    inset-inline-start: 1rem;
+    font-size: 0.7rem;
+    font-weight: 700;
+    color: var(--text-faint);
+    background: var(--bg);
+    padding-inline: 0.4rem;
+    letter-spacing: 0.04em;
+  }
+
+  .diagram pre {
+    direction: ltr;
+    text-align: left;
+    font-family: var(--font-mono);
+    font-size: var(--app-code-font-size, 14px);
+    line-height: 1.5;
+    margin: 0;
+    white-space: pre;
+  }
+
+  /* جدول‌ها — در نسخهٔ ۲ سرستون برجسته‌تر و ردیف‌ها رنگی‌تر */
+  .prose table {
+    display: block;
+    overflow-x: auto;
+    border-collapse: collapse;
+    margin-block: var(--app-paragraph-spacing, 1.1em);
+    font-size: 0.94em;
+    border: 1px solid var(--border);
+    border-radius: var(--radius-inner);
+  }
+
+  .prose th {
+    background: var(--surface-2);
+    color: var(--text);
+    font-weight: 700;
+    text-align: start;
+    padding: 0.6rem 0.85rem;
+    border-block-end: 2px solid var(--border-strong);
+    white-space: nowrap;
+  }
+
+  .prose td {
+    padding: 0.55rem 0.85rem;
+    border-block-end: 1px solid var(--border);
+  }
+
+  .prose tbody tr:nth-child(even) {
+    background: var(--table-stripe);
+  }
+
+  .prose tr:last-child td {
+    border-block-end: none;
+  }
+}
+
+@layer utilities {
+  /*
+   * ⭐ پایهٔ متنِ درس.
+   *
+   * اینجا عمداً از ابزارهای Tailwind (`text-base` و…) استفاده نکرده‌ام، چون
+   * اندازه و فاصله از تنظیماتِ کاربر می‌آیند و باید با `em` دنبال شوند تا
+   * با تغییر اندازهٔ فونت کوچک‌تر شوند.
+   */
+  .prose {
+    font-size: 1rem;
+    line-height: var(--app-line-height, 1.9);
+    text-align: var(--app-text-align, right);
+  }
+
+  .prose > * + * {
+    margin-block-start: var(--app-paragraph-spacing, 1.1em);
+  }
+
+  .prose h1,
+  .prose h2,
+  .prose h3,
+  .prose h4 {
+    font-weight: 700;
+    line-height: 1.45;
+    text-wrap: balance;
+    scroll-margin-block-start: 5rem;
+  }
+
+  .prose h1 {
+    font-size: 1.95em;
+    margin-block: 0 0.6em;
+  }
+  .prose h2 {
+    font-size: 1.5em;
+    margin-block: 1.9em 0.75em;
+    padding-block-end: 0.3em;
+    border-block-end: 1px solid var(--border);
+  }
+  .prose h3 {
+    font-size: 1.22em;
+    margin-block: 1.6em 0.55em;
+  }
+  .prose h4 {
+    font-size: 1.06em;
+    color: var(--text-muted);
+    margin-block: 1.4em 0.45em;
+  }
+
+  .prose h1 + *,
+  .prose h2 + *,
+  .prose h3 + * {
+    margin-block-start: 0.35em;
+  }
+
+  .prose ul,
+  .prose ol {
+    padding-inline-start: 1.9em;
+    margin-block: 0.9em;
+  }
+
+  .prose li + li {
+    margin-block-start: 0.3em;
+  }
+
+  .prose li::marker {
+    color: var(--text-faint);
+  }
+
+  .prose a {
+    color: var(--link);
+    text-decoration-color: color-mix(in srgb, var(--link) 35%, transparent);
+    text-underline-offset: 0.25em;
+    transition: color 120ms ease;
+  }
+  .prose a:hover {
+    color: var(--link-hover);
+    text-decoration-color: currentColor;
+  }
+
+  .prose strong {
+    font-weight: 700;
+    color: var(--text);
+  }
+
+  .prose hr {
+    border: none;
+    border-block-start: 1px solid var(--border);
+    margin-block: 2em;
+  }
+
+  .prose blockquote:not(.callout) {
+    margin-inline: 0;
+    padding-inline-start: 1em;
+    border-inline-start: 3px solid var(--border-strong);
+    color: var(--text-muted);
+  }
+
+  /* سرتیترهای لنگردار برای رفتن سریع */
+  .heading-anchor {
+    opacity: 0;
+    margin-inline-start: 0.4em;
+    font-size: 0.75em;
+    color: var(--text-faint);
+    text-decoration: none;
+    transition: opacity 120ms ease;
+  }
+  .prose h2:hover .heading-anchor,
+  .prose h3:hover .heading-anchor {
+    opacity: 1;
+  }
+}
+
+/* احترام به تنظیمِ کاهشِ حرکتِ سیستم‌عامل */
+@media (prefers-reduced-motion: reduce) {
+  *,
+  *::before,
+  *::after {
+    animation-duration: 0.01ms !important;
+    animation-iteration-count: 1 !important;
+    transition-duration: 0.01ms !important;
+    scroll-behavior: auto !important;
+  }
+}

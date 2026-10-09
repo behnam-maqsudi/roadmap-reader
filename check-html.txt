@@ -1,0 +1,28 @@
+      ولی خواندنِ **تم** از تنظیماتِ نسخه‌ی ۱ انجام می‌شود، تا اگر کاربر تم
+      تیره را در نسخه‌ی ۱ انتخاب کرده بود، نسخه‌ی ۲ هم با همان تم باز شود و
+      لحظه‌ای صفحهٔ سفید چشمک نزند.
+    -->
+    <script>
+      var DARK = ['dark', 'nord', 'dracula', 'high-contrast']
+      try {
+        var v1 = localStorage.getItem('roadmap-reader-settings')
+        if (v1) {
+          var t = JSON.parse(v1).theme
+          if (DARK.indexOf(t) !== -1) {
+            document.documentElement.classList.add('dark')
+            document.documentElement.dataset.theme = t
+          } else if (t) {
+            document.documentElement.dataset.theme = t
+          }
+        } else if (matchMedia('(prefers-color-scheme: dark)').matches) {
+          document.documentElement.classList.add('dark')
+          document.documentElement.dataset.theme = 'dark'
+        }
+      } catch (e) {}
+    </script>
+  </head>
+  <body>
+    <div id="root"></div>
+    <script type="module" src="/src/v2/main.tsx"></script>
+  </body>
+</html>

@@ -1,0 +1,5 @@
+q_p00_circuit      فاز-۰۰-Dp2t3AgI.js
+q_p01_two_crypto   فاز-۰۱-CfVmeZ0V.js
+q_p02_eventloop    فاز-۰۲-DPGMHHdP.js
+v2_marker          ❌ NOT FOUND
+v2_predict         01-نقشه-راه-اسکلت-DWzbHbqy.js 02-نقشه-راه-کامل-C-z0TorM.js v2-hss5UGdh.js فاز-۰۰-C9FSTS8H.js فاز-۰۰-Dp2t3AgI.js فاز-۰۰-پایه‌های-سیستم-و-لینوکس-BYEkWEbo.js فاز-۰۱-CfVmeZ0V.js فاز-۰۱-DkEpOsEI.js فاز-۰۱-شبکه-و-چرخه-حیات-وب-B2-iyQM7.js فاز-۰۲-DPGMHHdP.js فاز-۰۲-DqSXMeg8.js فاز-۰۲-nodejs-و-typescript-زیر-کاپوت-CSupbv9S.js فاز-۰۳-D6o7_zxq.js فاز-۰۳-معماری-و-فریم‌ورک-وب-DpWBI3bx.js فاز-۰۴-DtcoO2th.js فاز-۰۴-احراز-هویت-و-مجوزدهی-JF8qSrdi.js فاز-۰۵-ckIs1aee.js فاز-۰۵-پایگاه-داده-BFtNiMNK.js فاز-۰۶-6ZRsgoap.js فاز-۰۶-کش-و-صف-CY3_hRKf.js فاز-۰۷-DNc7848Y.js فاز-۰۷-امنیت-Dttz_-7R.js فاز-۰۸-BgddBV32.js فاز-۰۸-تست-و-استقرار-0_bRi4nq.js فاز-۰۹-Bk5b8mCj.js فاز-۰۹-پایتون-O9tKzPb4.js فاز-۱۰-CmJjULon.js فاز-۱۰-مهندسی-llm-OFPxC60j.js فاز-۱۱-345yTRDf.js فاز-۱۱-rag-Swkg6mhY.js فاز-۱۲-BrsJ-d57.js فاز-۱۲-ایجنت-C-mjw6ZU.js فاز-۱۳-Cr5itcCM.js فاز-۱۳-امنیتی-و-ارزیابی-ai-DujpcHEi.js ۰۰-راهنمای-شروع-BnlxjKEd.js
