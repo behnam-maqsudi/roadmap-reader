@@ -151,15 +151,15 @@
 
 @layer theme, base, components, utilities;
 
-@layer theme {
+@theme {
   /*
    * ⭐ توکن‌های Tailwind. این‌ها «رنگ‌های خام» نیستند — فقط نام‌گذاری
    * هستند. رنگ واقعی هر تم پایین‌تر تعریف می‌شود تا یک تم، همهٔ کامپوننت‌ها
    * را با هم عوض کند (کلاس `dark` یا صفت `data-theme`).
    */
 
-  --font-sans: 'Vazirmatn', system-ui, sans-serif;
-  --font-iransans: 'IRANSans', 'Vazirmatn', system-ui, sans-serif;
+  --font-sans: 'IRANSans', system-ui, sans-serif;
+  --font-iransans: 'IRANSans', system-ui, sans-serif;
   --font-mono: 'JetBrains Mono', 'Cascadia Code', Consolas, monospace;
 
   /* گامِ اندازه — rem است، چون متن فارسی به اندازهٔ پایه حساس است */
@@ -168,131 +168,184 @@
 
   /*
    * ⭐ رنگِ هر فاز. هر فاز رنگِ خودش را دارد و کل رابط با همان عوض می‌شود.
-   * این چیزی است که نسخهٔ ۱ نداشت و باعث می‌شود فاز ۰۱ در ذهنِ کاربر
-   * با فاز ۰۵ یکی نباشد.
    */
-  --phase-0: #e05252;
-  --phase-1: #e08a2e;
-  --phase-2: #b8892e;
-  --phase-3: #5a9e6f;
-  --phase-4: #3d8fb0;
-  --phase-5: #5a72c4;
-  --phase-6: #8a5fc0;
-  --phase-7: #c0526e;
-  --phase-8: #4a8f9e;
-  --phase-9: #7a8f3d;
-  --phase-10: #b0552e;
-  --phase-11: #2f8f7a;
-  --phase-12: #9a5ea8;
-  --phase-13: #4f6f9e;
-  --phase-guide: #8a6d3b;
+  --phase-0: #10b981;
+  --phase-1: #06b6d4;
+  --phase-2: #3b82f6;
+  --phase-3: #8b5cf6;
+  --phase-4: #ec4899;
+  --phase-5: #f59e0b;
+  --phase-6: #10b981;
+  --phase-7: #ef4444;
+  --phase-8: #06b6d4;
+  --phase-9: #14b8a6;
+  --phase-10: #f97316;
+  --phase-11: #6366f1;
+  --phase-12: #a855f7;
+  --phase-13: #0284c7;
+  --phase-guide: #10b981;
 }
 
 @layer base {
   :root {
-    /* پیش‌فرضِ تم روشن — رنگ‌های گرم، نه سفیدِ سرد */
-    --bg: #faf7f2;
+    /* پیش‌فرضِ تم روشن — کاغذ روشن */
+    --bg: #f8fafc;
     --surface: #ffffff;
-    --surface-2: #f4efe6;
-    --chrome: #fffdf9;
-    --text: #2c2723;
-    --text-muted: #6b6058;
-    --text-faint: #9a8f86;
-    --border: #e6ddd0;
-    --border-strong: #d4c7b5;
-    --link: #a33c3c;
-    --link-hover: #7f2a2a;
-    --accent: #a33c3c;
-    --accent-hover: #7f2a2a;
+    --surface-2: #f1f5f9;
+    --surface-3: #e2e8f0;
+    --chrome: #ffffff;
+    --text: #0f172a;
+    --text-muted: #475569;
+    --text-faint: #94a3b8;
+    --border: #e2e8f0;
+    --border-strong: #cbd5e1;
+    --link: #0284c7;
+    --link-hover: #0369a1;
+    --primary: #10b981;
+    --secondary: #06b6d4;
+    --amber: #f59e0b;
+    --crimson: #ef4444;
+    --accent: #10b981;
+    --accent-hover: #059669;
     --accent-text: #ffffff;
-    --code-bg: #f7f2ea;
-    --code-text: #33302c;
-    --code-inline-bg: #f0e7d9;
-    --table-stripe: #f8f3ea;
+    --code-bg: #0f172a;
+    --code-text: #f8fafc;
+    --code-inline-bg: #e2e8f0;
+    --table-stripe: #f8fafc;
 
-    /* رنگِ هر کارتِ آموزشی */
-    --story-bg: #fdf6e3;
-    --story-bar: #d4a017;
-    --note-bg: #eef4fb;
-    --note-bar: #3d7fbf;
-    --warn-bg: #fdf1e3;
-    --warn-bar: #d98324;
-    --ok-bg: #edf6ef;
-    --ok-bar: #4a8f5b;
-    --bad-bg: #fcefef;
-    --bad-bar: #c94f4f;
-    --goal-bg: #f2eef8;
-    --goal-bar: #7a5aa8;
-    --key-bg: #eff3f8;
-    --key-bar: #4a6f96;
-    --tip-bg: #fdf7e8;
-    --tip-bar: #b8912c;
-    --test-bg: #eef7f5;
-    --test-bar: #3d8f80;
-    --look-bg: #f0f3f8;
-    --look-bar: #5a6f9e;
+    --story-bg: #f5f3ff;
+    --story-bar: #8b5cf6;
+    --note-bg: #ecfeff;
+    --note-bar: #06b6d4;
+    --warn-bg: #fffbeb;
+    --warn-bar: #f59e0b;
+    --ok-bg: #ecfdf5;
+    --ok-bar: #10b981;
+    --bad-bg: #fef2f2;
+    --bad-bar: #ef4444;
+    --goal-bg: #f5f3ff;
+    --goal-bar: #7c3aed;
+    --key-bg: #f0fdf4;
+    --key-bar: #10b981;
+    --tip-bg: #fffbeb;
+    --tip-bar: #d97706;
+    --test-bg: #f0fdfa;
+    --test-bar: #0d9488;
+    --look-bg: #eff6ff;
+    --look-bar: #2563eb;
 
-    --shadow-sm: 0 1px 2px rgb(60 45 30 / 0.06);
-    --shadow-card: 0 2px 8px rgb(60 45 30 / 0.07);
-    --shadow-pop: 0 8px 28px rgb(60 45 30 / 0.14);
+    --shadow-sm: 0 1px 2px rgb(0 0 0 / 0.05);
+    --shadow-card: 0 4px 12px rgb(0 0 0 / 0.06);
+    --shadow-pop: 0 12px 32px rgb(0 0 0 / 0.12);
 
     color-scheme: light;
   }
 
   /*
-   * ⭐⭐ تم تیره.
-   *
-   * `data-theme` روی `<html>` ست می‌شود (نام تم)، و کلاس `dark` هم ست می‌شود
-   * تا Tailwind ابزارهای `dark:` را بفهمد. رنگ‌های تیره **گرم** انتخاب
-   * شده‌اند نه خاکستریِ سرد — چون متن فارسیِ بلند روی زمینهٔ سرد خسته‌کننده است.
+   * ⭐⭐ تم پیش‌فرض تیره: Tectonic Obsidian (خروجی مستقیم Stitch)
+   * کانواس عمیق اسلیت، هایلایت‌های زمردی و فیروزه‌ای، خطوط باریک ۱ پیکسلی
    */
   :root.dark,
   :root[data-theme='dark'] {
-    --bg: #1b1815;
-    --surface: #24201c;
-    --surface-2: #2c2723;
-    --chrome: #211d1a;
-    --text: #ece4da;
-    --text-muted: #b0a49a;
-    --text-faint: #7d7268;
-    --border: #3a332d;
-    --border-strong: #4d443c;
-    --link: #e5928c;
-    --link-hover: #f2b0aa;
-    --accent: #d96b62;
-    --accent-hover: #e5837a;
-    --accent-text: #1b1815;
-    --code-bg: #201c19;
-    --code-text: #ece4da;
-    --code-inline-bg: #322b26;
-    --table-stripe: #292420;
+    --bg: #090d16;
+    --surface: #0f172a;
+    --surface-2: #1e293b;
+    --surface-3: #283548;
+    --chrome: #0f172a;
+    --text: #f8fafc;
+    --text-muted: #94a3b8;
+    --text-faint: #64748b;
+    --border: rgba(255, 255, 255, 0.08);
+    --border-strong: rgba(255, 255, 255, 0.16);
+    --link: #06b6d4;
+    --link-hover: #38bdf8;
+    --primary: #10b981;
+    --secondary: #06b6d4;
+    --amber: #f59e0b;
+    --crimson: #ef4444;
+    --accent: #10b981;
+    --accent-hover: #34d399;
+    --accent-text: #090d16;
+    --code-bg: #0b1120;
+    --code-text: #f8fafc;
+    --code-inline-bg: #1e293b;
+    --table-stripe: #0f172a;
 
-    /* کارت‌ها در تم تیره باید «کم‌نور» شوند نه اینکه روشن‌تر از متن شوند */
-    --story-bg: #2e2716;
-    --story-bar: #e0b64a;
-    --note-bg: #16242f;
-    --note-bar: #6aa5e0;
-    --warn-bg: #2f2317;
-    --warn-bar: #e8a355;
-    --ok-bg: #17291c;
-    --ok-bar: #6fbf83;
-    --bad-bg: #2e1a1a;
-    --bad-bar: #e07070;
-    --goal-bg: #241f2e;
-    --goal-bar: #a98ad6;
-    --key-bg: #1c2430;
-    --key-bar: #7fa3d0;
-    --tip-bg: #2b2617;
-    --tip-bar: #d4b04a;
-    --test-bg: #152724;
-    --test-bar: #5fb3a5;
-    --look-bg: #1e2330;
-    --look-bar: #8fa3d6;
+    --story-bg: rgba(139, 92, 246, 0.07);
+    --story-bar: #8b5cf6;
+    --note-bg: rgba(6, 182, 212, 0.07);
+    --note-bar: #06b6d4;
+    --warn-bg: rgba(245, 158, 11, 0.07);
+    --warn-bar: #f59e0b;
+    --ok-bg: rgba(16, 185, 129, 0.07);
+    --ok-bar: #10b981;
+    --bad-bg: rgba(239, 68, 68, 0.07);
+    --bad-bar: #ef4444;
+    --goal-bg: rgba(168, 85, 247, 0.07);
+    --goal-bar: #a855f7;
+    --key-bg: rgba(6, 182, 212, 0.07);
+    --key-bar: #06b6d4;
+    --tip-bg: rgba(245, 158, 11, 0.07);
+    --tip-bar: #f59e0b;
+    --test-bg: rgba(20, 184, 166, 0.07);
+    --test-bar: #14b8a6;
+    --look-bg: rgba(59, 130, 246, 0.07);
+    --look-bar: #3b82f6;
 
-    --shadow-sm: 0 1px 2px rgb(0 0 0 / 0.3);
-    --shadow-card: 0 2px 10px rgb(0 0 0 / 0.35);
-    --shadow-pop: 0 8px 28px rgb(0 0 0 / 0.5);
+    --shadow-sm: 0 1px 2px rgb(0 0 0 / 0.4);
+    --shadow-card: 0 4px 20px -2px rgb(0 0 0 / 0.5);
+    --shadow-pop: 0 20px 40px -8px rgb(0 0 0 / 0.8);
 
+    color-scheme: dark;
+  }
+
+  /* تم محافظ چشم (سپیا گرم) */
+  :root[data-theme='sepia'] {
+    --bg: #fbf7ee;
+    --surface: #f4ede0;
+    --surface-2: #e9dec9;
+    --surface-3: #ded2bb;
+    --chrome: #f4ede0;
+    --text: #3c3429;
+    --text-muted: #6b5e4d;
+    --text-faint: #9c8a73;
+    --border: #e3d5bf;
+    --border-strong: #cdbc9f;
+    --link: #945200;
+    --link-hover: #b46500;
+    --primary: #945200;
+    --secondary: #2b7489;
+    --accent: #945200;
+    --accent-hover: #7b4400;
+    --accent-text: #fff;
+    --code-bg: #2d261e;
+    --code-text: #fbf7ee;
+    --code-inline-bg: #e5d9c3;
+    color-scheme: light;
+  }
+
+  /* تم مونوکای سایبر */
+  :root[data-theme='monokai'] {
+    --bg: #1e1f1c;
+    --surface: #272822;
+    --surface-2: #383830;
+    --surface-3: #49483e;
+    --chrome: #272822;
+    --text: #f8f8f2;
+    --text-muted: #a6e22e;
+    --text-faint: #75715e;
+    --border: rgba(255, 255, 255, 0.1);
+    --border-strong: rgba(255, 255, 255, 0.2);
+    --link: #66d9ef;
+    --link-hover: #a1efe4;
+    --primary: #a6e22e;
+    --secondary: #66d9ef;
+    --accent: #fd971f;
+    --accent-hover: #e6820c;
+    --accent-text: #1e1f1c;
+    --code-bg: #141411;
+    --code-text: #f8f8f2;
+    --code-inline-bg: #383830;
     color-scheme: dark;
   }
 
@@ -301,8 +354,6 @@
   }
 
   html {
-    /* ⭐ فونت‌ها و اندازه از تنظیمات کنترل می‌شود (مثل نسخهٔ ۱)، ولی
-       نسخهٔ ۲ آن‌ها را با نام‌های تازه می‌خواند تا با هم قاطی نشوند. */
     font-size: var(--app-font-size, 17px);
     scroll-behavior: smooth;
   }
@@ -311,9 +362,9 @@
     margin: 0;
     background: var(--bg);
     color: var(--text);
-    font-family: var(--app-font-family, 'Vazirmatn');
+    font-family: var(--app-font-family, 'IRANSans');
     font-weight: var(--app-font-weight, 400);
-    line-height: var(--app-line-height, 1.9);
+    line-height: var(--app-line-height, 1.85);
     letter-spacing: var(--app-letter-spacing, 0);
     -webkit-font-smoothing: antialiased;
     text-rendering: optimizeLegibility;
@@ -634,6 +685,67 @@
   .prose h2:hover .heading-anchor,
   .prose h3:hover .heading-anchor {
     opacity: 1;
+  }
+  /* پنجره کد ترمینالی (Tectonic Obsidian) */
+  .terminal-window {
+    direction: ltr;
+    text-align: left;
+    background: var(--code-bg);
+    border: 1px solid var(--border);
+    border-radius: var(--radius-inner);
+    overflow: hidden;
+    margin-block: var(--app-code-spacing, 1.4em);
+    box-shadow: 0 4px 20px -2px rgba(0, 0, 0, 0.4);
+  }
+
+  .terminal-header {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    padding: 0.45rem 0.85rem;
+    background: var(--surface);
+    border-block-end: 1px solid var(--border);
+    user-select: none;
+    font-size: 0.75rem;
+  }
+
+  .terminal-dots {
+    display: flex;
+    align-items: center;
+    gap: 6px;
+  }
+
+  .terminal-dot {
+    width: 10px;
+    height: 10px;
+    border-radius: 9999px;
+  }
+
+  .terminal-dot-red { background: #ef4444; }
+  .terminal-dot-yellow { background: #f59e0b; }
+  .terminal-dot-green { background: #10b981; }
+
+  /* انیمیشن پالس فاز فعال */
+  @keyframes activePulse {
+    0%, 100% { opacity: 1; transform: scale(1); }
+    50% { opacity: 0.4; transform: scale(1.2); }
+  }
+  .animate-pulse-slow {
+    animation: activePulse 2s cubic-bezier(0.4, 0, 0.6, 1) infinite;
+  }
+
+  /* کارت سه‌بعدی فلش‌کارت SRS */
+  .perspective-1000 {
+    perspective: 1000px;
+  }
+  .transform-style-3d {
+    transform-style: preserve-3d;
+  }
+  .backface-hidden {
+    backface-visibility: hidden;
+  }
+  .rotate-y-180 {
+    transform: rotateY(180deg);
   }
 }
 

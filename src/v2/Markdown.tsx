@@ -13,7 +13,7 @@
  * فقط import می‌شود.
  */
 
-import { isValidElement, memo, useMemo, type ReactNode } from 'react'
+import { isValidElement, memo, useMemo, useState, type ReactNode } from 'react'
 import ReactMarkdown, { type Components } from 'react-markdown'
 import remarkGfm from 'remark-gfm'
 import rehypeRaw from 'rehype-raw'
@@ -151,6 +151,55 @@ function Callout({
   )
 }
 
+function CodeBlock({
+  lang,
+  className,
+  children,
+}: {
+  lang?: string
+  className?: string
+  children: ReactNode
+}) {
+  const [copied, setCopied] = useState(false)
+  const onCopy = () => {
+    const text = textOf(children).replace(/\n$/, '')
+    navigator.clipboard.writeText(text).then(() => {
+      setCopied(true)
+      setTimeout(() => setCopied(false), 2000)
+    })
+  }
+
+  return (
+    <div className="terminal-window my-4">
+      <div className="terminal-header">
+        <div className="terminal-dots">
+          <span className="terminal-dot terminal-dot-red" />
+          <span className="terminal-dot terminal-dot-yellow" />
+          <span className="terminal-dot terminal-dot-green" />
+        </div>
+        <div className="flex items-center gap-2.5">
+          {lang && lang !== 'text' && (
+            <span className="font-mono text-[0.7rem] uppercase text-[var(--secondary)] font-semibold tracking-wider">
+              {lang}
+            </span>
+          )}
+          <button
+            type="button"
+            onClick={onCopy}
+            className="rounded px-2 py-0.5 text-[0.72rem] text-[var(--text-muted)] hover:bg-[var(--surface-2)] hover:text-[var(--text)] transition-colors"
+            title="کپی کردن کد"
+          >
+            {copied ? '✓ کپی شد' : 'کپی'}
+          </button>
+        </div>
+      </div>
+      <pre className="p-4 overflow-x-auto text-[0.85rem] leading-relaxed font-mono">
+        <code className={className}>{children}</code>
+      </pre>
+    </div>
+  )
+}
+
 function MarkdownImpl({ content, anchorPrefix = '' }: { content: string; anchorPrefix?: string }) {
   const highlightOptions = useMemo(() => ({ detect: true, ignoreMissing: true }), [])
   const headings = useMemo(
@@ -208,16 +257,9 @@ function MarkdownImpl({ content, anchorPrefix = '' }: { content: string; anchorP
         }
 
         return (
-          <div className="code-block">
-            {lang && lang !== 'text' && (
-              <span className="absolute top-1.5 end-2 text-[0.7rem] font-semibold text-faint select-none">
-                {lang}
-              </span>
-            )}
-            <pre>
-              <code className={className}>{children}</code>
-            </pre>
-          </div>
+          <CodeBlock lang={lang} className={className}>
+            {children}
+          </CodeBlock>
         )
       },
 

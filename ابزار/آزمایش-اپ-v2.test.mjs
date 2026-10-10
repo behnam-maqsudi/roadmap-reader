@@ -190,6 +190,18 @@ function globShim() {
         }
         return patchGlob(args, map, loaderFor)
       })
+
+      b.onLoad({ filter: /study\.ts$/ }, (args) => {
+        const dir = join(root, 'محتوا', 'فازها')
+        const map = {}
+        if (listDir(dir)) {
+          for (const f of readdirSync(dir).filter((f) => f.endsWith('.json'))) {
+            const json = JSON.parse(readFileSync(join(dir, f), 'utf8'))
+            map[`../محتوا/فازها/${f}`] = json
+          }
+        }
+        return patchGlob(args, map, loaderFor)
+      })
     },
   }
 }
