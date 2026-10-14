@@ -44,7 +44,7 @@ const STATIONS: Station[] = [
     title: 'دفترچه تلفن و بایگانی',
     subtitle: 'دیتابیس و مدل‌سازی داده',
     product: 'ثبت محصولات، تیکت‌ها و سفارشات در PostgreSQL با Prisma',
-    status: 'upcoming',
+    status: 'active',
   },
   {
     id: 3,
@@ -248,6 +248,221 @@ const BRUNO_TESTS = [
   },
 ]
 
+const STATION2_SCHEMA = `// prisma/schema.prisma — نقشه بایگانی پایگاه داده سفیر
+
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "postgresql"
+  url      = env("DATABASE_URL")
+}
+
+model Customer {
+  id        String   @id @default(uuid())
+  name      String
+  phone     String   @unique
+  createdAt DateTime @default(now())
+
+  orders    Order[]
+  messages  ChatMessage[]
+}
+
+model Order {
+  id          String   @id @default(uuid())
+  orderNumber String   @unique
+  itemTitle   String
+  status      String   @default("ثبت اولیه")
+  city        String
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
+
+  customerId  String
+  customer    Customer @relation(fields: [customerId], references: [id])
+}
+
+model ChatMessage {
+  id        String   @id @default(uuid())
+  sender    String
+  content   String
+  createdAt DateTime @default(now())
+
+  customerId String?
+  customer   Customer? @relation(fields: [customerId], references: [id])
+}`
+
+const STATION2_SERVER_CODE = `// server.js — نسخه ۳: گام دوم (اتصال به دیتابیس با Prisma)
+
+const fastify = require('fastify')({ logger: true });
+const { PrismaClient } = require('@prisma/client');
+const prisma = new PrismaClient();
+
+// ۱. نبض سرور و تست اتصال زنده دیتابیس
+fastify.get('/health', async (request, reply) => {
+  try {
+    await prisma.$queryRaw\`SELECT 1\`;
+    return {
+      status: 'healthy',
+      database: 'connected (PostgreSQL)',
+      uptime: process.uptime(),
+      timestamp: new Date().toISOString()
+    };
+  } catch (err) {
+    reply.status(500);
+    return { status: 'unhealthy', database: 'disconnected', error: err.message };
+  }
+});
+
+// ۲. مسیر دریافت پیام چت و ذخیره ابدی در دیتابیس
+fastify.post('/api/chat', async (request, reply) => {
+  const { message, name, phone } = request.body || {};
+
+  if (!message || message.trim() === '') {
+    reply.status(400);
+    return { success: false, error: 'متن پیام نمی‌تواند خالی باشد!' };
+  }
+
+  const customer = await prisma.customer.upsert({
+    where: { phone: phone || '09000000000' },
+    update: { name: name || 'کاربر گرامی' },
+    create: { name: name || 'کاربر گرامی', phone: phone || '09000000000' }
+  });
+
+  const savedMsg = await prisma.chatMessage.create({
+    data: { sender: 'کاربر', content: message.trim(), customerId: customer.id }
+  });
+
+  const botReply = \`درود \${customer.name}! پیام شما در پایگاه داده سفیر ثبت شد.\`;
+  await prisma.chatMessage.create({
+    data: { sender: 'سفیر (سیستم)', content: botReply, customerId: customer.id }
+  });
+
+  return { success: true, customerId: customer.id, reply: botReply };
+});
+
+// ۳. مسیر استعلام وضعیت سفارش از دیتابیس
+fastify.get('/api/orders/:orderNumber', async (request, reply) => {
+  const { orderNumber } = request.params;
+  const order = await prisma.order.findUnique({
+    where: { orderNumber: String(orderNumber) },
+    include: { customer: { select: { name: true, phone: true } } }
+  });
+
+  if (!order) {
+    reply.status(404);
+    return { success: false, error: \`سفارشی با شماره پیگیری \${orderNumber} یافت نشد!\` };
+  }
+
+  return { success: true, order };
+});
+
+// ۴. مسیر ثبت سفارش جدید در دیتابیس
+fastify.post('/api/orders', async (request, reply) => {
+  const { orderNumber, itemTitle, city, customerPhone, customerName } = request.body || {};
+  if (!orderNumber || !itemTitle || !customerPhone) {
+    reply.status(400);
+    return { success: false, error: 'شماره سفارش، نام کالا و تلفن الزامی هستند.' };
+  }
+
+  const customer = await prisma.customer.upsert({
+    where: { phone: customerPhone },
+    update: {},
+    create: { name: customerName || 'مشتری جدید', phone: customerPhone }
+  });
+
+  const newOrder = await prisma.order.create({
+    data: {
+      orderNumber: String(orderNumber),
+      itemTitle,
+      city: city || 'نامشخص',
+      customerId: customer.id
+    }
+  });
+
+  reply.status(201);
+  return { success: true, order: newOrder };
+});
+
+fastify.listen({ port: 3000, host: '0.0.0.0' }).then(addr => {
+  console.log(\`🚀 سرور سفیر با اتصال دیتابیس روی \${addr} بیدار شد!\`);
+});`
+
+const STATION2_BRUNO_TESTS = [
+  {
+    id: 1,
+    title: 'تست ۱: نبض سرور و اتصال به PostgreSQL',
+    method: 'GET',
+    url: 'http://localhost:3000/health',
+    status: '200 OK',
+    body: null,
+    expected: `{
+  "status": "healthy",
+  "database": "connected (PostgreSQL)",
+  "uptime": 2.14,
+  "timestamp": "2026-10-15T01:00:00.000Z"
+}`,
+  },
+  {
+    id: 2,
+    title: 'تست ۲: ثبت سفارش در پایگاه داده (201 Created)',
+    method: 'POST',
+    url: 'http://localhost:3000/api/orders',
+    status: '201 Created',
+    body: `{
+  "orderNumber": "2001",
+  "itemTitle": "کیت رباتیک هوشمند سفیر",
+  "city": "مشهد",
+  "customerName": "بهنام",
+  "customerPhone": "09121112233"
+}`,
+    expected: `{
+  "success": true,
+  "message": "سفارش با موفقیت در دیتابیس پایدار ذخیره شد.",
+  "order": {
+    "orderNumber": "2001",
+    "itemTitle": "کیت رباتیک هوشمند سفیر",
+    "status": "ثبت اولیه"
+  }
+}`,
+  },
+  {
+    id: 3,
+    title: 'تست ۳: استعلام سفارش واقعی و رابطه مشتری (200 OK)',
+    method: 'GET',
+    url: 'http://localhost:3000/api/orders/2001',
+    status: '200 OK',
+    body: null,
+    expected: `{
+  "success": true,
+  "order": {
+    "number": "2001",
+    "item": "کیت رباتیک هوشمند سفیر",
+    "status": "ثبت اولیه",
+    "customerName": "بهنام",
+    "customerPhone": "09121112233"
+  }
+}`,
+  },
+  {
+    id: 4,
+    title: 'تست ۴: ثبت پیام چت در جدول ChatMessage',
+    method: 'POST',
+    url: 'http://localhost:3000/api/chat',
+    status: '200 OK',
+    body: `{
+  "name": "بهنام",
+  "phone": "09121112233",
+  "message": "سلام سفیر! وضعیت بسته‌ام رو چک کن"
+}`,
+    expected: `{
+  "success": true,
+  "customerId": "c1...",
+  "reply": "درود بهنام! پیام شما در پایگاه داده سفیر ثبت شد."
+}`,
+  },
+]
+
 export default function App() {
   const [docs, setDocs] = useState<Doc[]>([])
   const [loading, setLoading] = useState(true)
@@ -311,10 +526,13 @@ export default function App() {
     setTimeout(() => setCopiedKey(null), 2000)
   }
 
-  // یافتن سند فاز ۱۴ یا سند نقشه راه ۳
+  // یافتن سند مربوط به ایستگاه انتخاب‌شده
   const activeDoc = useMemo(() => {
     if (selectedStationId === 0) {
       return docs.find((d) => d.path.includes('03-نقشه-راه-چریکی')) ?? null
+    }
+    if (selectedStationId === 2) {
+      return docs.find((d) => d.path.includes('فاز-۱۵')) ?? docs.find((d) => d.title.includes('دفترچه')) ?? null
     }
     return docs.find((d) => d.path.includes('فاز-۱۴')) ?? docs.find((d) => d.title.includes('تلفنچی')) ?? null
   }, [docs, selectedStationId])
@@ -385,13 +603,15 @@ export default function App() {
                 سفیر
               </span>
               <span className="text-xs text-[var(--text-muted)] hidden md:inline">
-                / {selectedStationId === 0 ? 'نقشه راه کلان' : `ایستگاه ${selectedStationId}: تلفنچی رستوران`}
+                / {selectedStationId === 0
+                  ? 'نقشه راه کلان'
+                  : `ایستگاه ${selectedStationId}: ${STATIONS.find((s) => s.id === selectedStationId)?.title ?? ''}`}
               </span>
             </div>
           </div>
 
-          {/* وسط: تب‌های روان کارگاهی */}
-          {selectedStationId === 1 && (
+          {/* وسط: تب‌های روان کارگاهی برای مأموریت‌های فعال */}
+          {(selectedStationId === 1 || selectedStationId === 2) && (
             <div className="flex items-center gap-1 bg-[var(--surface-2)] p-1 rounded-xl border border-[var(--border)] text-xs">
               <button
                 type="button"
@@ -774,6 +994,244 @@ export default function App() {
                       <pre className="p-4 overflow-x-auto text-xs leading-relaxed font-mono" dir="ltr">
                         <code>{SERVER_CODE}</code>
                       </pre>
+                    </div>
+                  </div>
+                )}
+              </>
+            ) : selectedStationId === 2 ? (
+              <>
+                {/* تب ۱: متن اصلی درس ایستگاه ۲ با تایپوگرافی خوش‌خوان */}
+                {activeTab === 'reader' && activeDoc && (
+                  <article className="prose">
+                    <Markdown content={activeDoc.content} anchorPrefix="v3-" />
+                  </article>
+                )}
+
+                {/* تب ۲: جعبه‌ابزار و پیش‌نیازهای دیتابیس */}
+                {activeTab === 'toolbox' && (
+                  <div className="flex flex-col gap-6 py-2">
+                    <div className="rounded-2xl border border-[var(--border)] bg-[var(--surface-2)] p-6">
+                      <h2 className="text-base font-bold text-[var(--text)] mb-2 flex items-center gap-2">
+                        <span>🧰</span>
+                        <span>جعبه‌ابزار مأموریت ۲ (PostgreSQL و Prisma)</span>
+                      </h2>
+                      <p className="text-xs text-[var(--text-muted)] leading-relaxed">
+                        برای ساخت بایگانی پایدار، این نرم‌افزارها و کتابخانه‌ها را در سیستمت آماده کن:
+                      </p>
+                    </div>
+
+                    <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                      {/* PostgreSQL */}
+                      <div className="rounded-2xl border border-[var(--border)] bg-[var(--surface)] p-5 flex flex-col justify-between gap-4">
+                        <div>
+                          <div className="flex items-center justify-between mb-2">
+                            <h3 className="font-bold text-sm text-[var(--text)]">۱. پایگاه داده PostgreSQL</h3>
+                            <span className="rounded bg-emerald-500/15 text-emerald-500 text-[0.65rem] px-2 py-0.5 font-bold">پایگاه داده اصلی</span>
+                          </div>
+                          <p className="text-xs text-[var(--text-muted)] mb-3 leading-relaxed">
+                            پایگاه داده رابطه‌ای متن‌باز و استاندارد جهانی برای ذخیره ابدی جداول.
+                          </p>
+                          <div className="bg-[var(--surface-2)] border border-[var(--border)] rounded-xl p-2.5 font-mono text-xs text-[var(--primary)] flex items-center justify-between">
+                            <span>psql --version</span>
+                            <button
+                              onClick={() => copyToClipboard('psql --version', 'cmd-psql')}
+                              className="text-xs text-[var(--text-muted)] hover:text-[var(--text)] font-sans"
+                            >
+                              {copiedKey === 'cmd-psql' ? 'کپی شد!' : 'کپی'}
+                            </button>
+                          </div>
+                        </div>
+                        <a
+                          href="https://www.enterprisedb.com/downloads/postgres-postgresql-downloads"
+                          target="_blank"
+                          rel="noreferrer"
+                          className="text-center rounded-xl bg-[var(--surface-2)] hover:bg-[var(--primary)] hover:text-white text-[var(--text)] font-bold text-xs py-2.5 transition-all border border-[var(--border)]"
+                        >
+                          دریافت PostgreSQL ویندوز ↗
+                        </a>
+                      </div>
+
+                      {/* Prisma Studio */}
+                      <div className="rounded-2xl border border-[var(--border)] bg-[var(--surface)] p-5 flex flex-col justify-between gap-4">
+                        <div>
+                          <div className="flex items-center justify-between mb-2">
+                            <h3 className="font-bold text-sm text-[var(--text)]">۲. میز کار Prisma Studio</h3>
+                            <span className="rounded bg-cyan-500/15 text-cyan-500 text-[0.65rem] px-2 py-0.5 font-bold">بصری و آفلاین</span>
+                          </div>
+                          <p className="text-xs text-[var(--text-muted)] mb-3 leading-relaxed">
+                            مشاهده و ویرایش مستقیم رکوردهای دیتابیس در محیط وب لوکال مانند اکسل.
+                          </p>
+                          <div className="bg-[var(--surface-2)] border border-[var(--border)] rounded-xl p-2.5 font-mono text-xs text-[var(--text)] flex items-center justify-between">
+                            <span>npx prisma studio</span>
+                            <button
+                              onClick={() => copyToClipboard('npx prisma studio', 'cmd-studio')}
+                              className="text-xs text-[var(--text-muted)] hover:text-[var(--text)] font-sans"
+                            >
+                              {copiedKey === 'cmd-studio' ? 'کپی شد!' : 'کپی'}
+                            </button>
+                          </div>
+                        </div>
+                        <div className="text-center rounded-xl bg-[var(--surface-2)] text-[var(--text-muted)] text-xs py-2.5 border border-[var(--border)]">
+                          روی پورت ۵۵۵۵ لوکال اجرا می‌شود
+                        </div>
+                      </div>
+
+                      {/* Prisma packages */}
+                      <div className="rounded-2xl border border-[var(--border)] bg-[var(--surface)] p-5 flex flex-col justify-between gap-4 md:col-span-2">
+                        <div>
+                          <div className="flex items-center justify-between mb-2">
+                            <h3 className="font-bold text-sm text-[var(--text)]">۳. نصب Prisma CLI و Prisma Client</h3>
+                            <span className="rounded bg-amber-500/15 text-amber-500 text-[0.65rem] px-2 py-0.5 font-bold">دستور نصب</span>
+                          </div>
+                          <p className="text-xs text-[var(--text-muted)] mb-3 leading-relaxed">
+                            دستورات زیر را در پوشه پروژه اجرا کن تا کلاینت و موتور تایپ‌سیف دیتابیس نصب شوند:
+                          </p>
+                          <div className="bg-[var(--surface-2)] border border-[var(--border)] rounded-xl p-3 font-mono text-xs text-[var(--text)] flex items-center justify-between">
+                            <span>npm install prisma --save-dev && npm install @prisma/client</span>
+                            <button
+                              onClick={() => copyToClipboard('npm install prisma --save-dev && npm install @prisma/client', 'cmd-prisma')}
+                              className="rounded bg-[var(--surface-3)] px-3 py-1 text-xs font-sans text-[var(--text)] hover:bg-[var(--primary)] hover:text-white"
+                            >
+                              {copiedKey === 'cmd-prisma' ? 'کپی شد! ✓' : 'کپی دستور'}
+                            </button>
+                          </div>
+                        </div>
+                      </div>
+                    </div>
+                  </div>
+                )}
+
+                {/* تب ۳: میز تست Bruno */}
+                {activeTab === 'bruno' && (
+                  <div className="flex flex-col gap-5 py-2">
+                    <div className="rounded-2xl border border-[var(--border)] bg-[var(--surface-2)] p-5">
+                      <h2 className="text-sm font-bold text-[var(--text)] mb-1">سناریوهای تست اتصال و پایداری داده در دیتابیس</h2>
+                      <p className="text-xs text-[var(--text-muted)] leading-relaxed">
+                        این ۴ تست را برای اطمینان از ثبت واقعی در PostgreSQL انجام بده:
+                      </p>
+                    </div>
+
+                    <div className="flex flex-col gap-4">
+                      {STATION2_BRUNO_TESTS.map((t) => (
+                        <div key={t.id} className="rounded-2xl border border-[var(--border)] bg-[var(--surface)] p-5 flex flex-col gap-3 shadow-sm">
+                          <div className="flex items-center justify-between border-b border-[var(--border)] pb-2.5">
+                            <div className="flex items-center gap-2">
+                              <span
+                                className={`rounded px-2 py-0.5 text-xs font-black ${
+                                  t.method === 'GET' ? 'bg-emerald-500/15 text-emerald-500' : 'bg-blue-500/15 text-blue-500'
+                                }`}
+                              >
+                                {t.method}
+                              </span>
+                              <span className="font-bold text-xs text-[var(--text)]">{t.title}</span>
+                            </div>
+                            <span className="text-xs font-mono font-bold text-[var(--primary)] bg-[var(--surface-2)] px-2 py-1 rounded border border-[var(--border)]">
+                              Status: {t.status}
+                            </span>
+                          </div>
+
+                          <div className="flex items-center justify-between bg-[var(--surface-2)] p-2.5 rounded-xl border border-[var(--border)] font-mono text-xs text-[var(--text)]">
+                            <span>{t.url}</span>
+                            <button
+                              onClick={() => copyToClipboard(t.url, `st2-url-${t.id}`)}
+                              className="text-xs text-[var(--text-muted)] hover:text-[var(--text)] font-sans"
+                            >
+                              {copiedKey === `st2-url-${t.id}` ? 'کپی شد!' : 'کپی آدرس'}
+                            </button>
+                          </div>
+
+                          {t.body && (
+                            <div className="flex flex-col gap-1">
+                              <div className="flex items-center justify-between text-xs text-[var(--text-muted)]">
+                                <span>بدنه ارسال (Body - JSON):</span>
+                                <button
+                                  onClick={() => copyToClipboard(t.body!, `st2-body-${t.id}`)}
+                                  className="text-[var(--primary)] hover:underline text-[0.72rem]"
+                                >
+                                  {copiedKey === `st2-body-${t.id}` ? 'کپی شد! ✓' : 'کپی بدنه'}
+                                </button>
+                              </div>
+                              <pre className="bg-[var(--surface-2)] p-3 rounded-xl border border-[var(--border)] font-mono text-xs text-[var(--text)] overflow-x-auto text-left" dir="ltr">
+                                <code>{t.body}</code>
+                              </pre>
+                            </div>
+                          )}
+
+                          <div className="flex flex-col gap-1">
+                            <span className="text-xs text-[var(--text-muted)]">پاسخ دیتابیس:</span>
+                            <pre className="bg-[var(--surface-2)] p-3 rounded-xl border border-[var(--border)] font-mono text-xs text-[var(--text-muted)] overflow-x-auto text-left" dir="ltr">
+                              <code>{t.expected}</code>
+                            </pre>
+                          </div>
+                        </div>
+                      ))}
+                    </div>
+                  </div>
+                )}
+
+                {/* تب ۴: کدهای Prisma و سرور */}
+                {activeTab === 'code' && (
+                  <div className="flex flex-col gap-6 py-2">
+                    {/* نقشه schema.prisma */}
+                    <div className="flex flex-col gap-2">
+                      <div className="flex items-center justify-between bg-[var(--surface-2)] border border-[var(--border)] p-3 rounded-2xl">
+                        <div className="flex flex-col">
+                          <span className="font-bold text-sm text-[var(--text)]">۱. نقشه دیتابیس (prisma/schema.prisma)</span>
+                          <span className="text-xs text-[var(--text-muted)]">۳ مدل: Customer, Order, ChatMessage</span>
+                        </div>
+                        <button
+                          type="button"
+                          onClick={() => copyToClipboard(STATION2_SCHEMA, 'code-schema')}
+                          className="rounded-xl bg-[var(--primary)] px-3 py-1.5 text-xs font-bold text-white hover:opacity-90 shadow-sm transition-all"
+                        >
+                          {copiedKey === 'code-schema' ? 'کپی شد! ✓' : 'کپی اسکیما'}
+                        </button>
+                      </div>
+
+                      <div className="terminal-window my-1">
+                        <div className="terminal-header">
+                          <div className="terminal-dots">
+                            <span className="terminal-dot terminal-dot-red" />
+                            <span className="terminal-dot terminal-dot-yellow" />
+                            <span className="terminal-dot terminal-dot-green" />
+                          </div>
+                          <span className="font-mono text-xs text-[var(--text-muted)]">schema.prisma</span>
+                        </div>
+                        <pre className="p-4 overflow-x-auto text-xs leading-relaxed font-mono" dir="ltr">
+                          <code>{STATION2_SCHEMA}</code>
+                        </pre>
+                      </div>
+                    </div>
+
+                    {/* کدهای server.js */}
+                    <div className="flex flex-col gap-2">
+                      <div className="flex items-center justify-between bg-[var(--surface-2)] border border-[var(--border)] p-3 rounded-2xl">
+                        <div className="flex flex-col">
+                          <span className="font-bold text-sm text-[var(--text)]">۲. کدهای متصل به Prisma در server.js</span>
+                          <span className="text-xs text-[var(--text-muted)]">جایگزینی متغیر موقت با دیتابیس پایدار</span>
+                        </div>
+                        <button
+                          type="button"
+                          onClick={() => copyToClipboard(STATION2_SERVER_CODE, 'code-st2-server')}
+                          className="rounded-xl bg-[var(--primary)] px-3 py-1.5 text-xs font-bold text-white hover:opacity-90 shadow-sm transition-all"
+                        >
+                          {copiedKey === 'code-st2-server' ? 'کپی شد! ✓' : 'کپی کد سرور'}
+                        </button>
+                      </div>
+
+                      <div className="terminal-window my-1">
+                        <div className="terminal-header">
+                          <div className="terminal-dots">
+                            <span className="terminal-dot terminal-dot-red" />
+                            <span className="terminal-dot terminal-dot-yellow" />
+                            <span className="terminal-dot terminal-dot-green" />
+                          </div>
+                          <span className="font-mono text-xs text-[var(--text-muted)]">server.js (Prisma Edition)</span>
+                        </div>
+                        <pre className="p-4 overflow-x-auto text-xs leading-relaxed font-mono" dir="ltr">
+                          <code>{STATION2_SERVER_CODE}</code>
+                        </pre>
+                      </div>
                     </div>
                   </div>
                 )}
