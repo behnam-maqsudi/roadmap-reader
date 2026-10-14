@@ -58,7 +58,7 @@ const STATIONS: Station[] = [
     title: 'کمد حافظه و صف انبار',
     subtitle: 'کش و صف پردازش غیرهمگام',
     product: 'کش کردن سوالات تکراری و صف پردازش کارهای سنگین با Redis & BullMQ',
-    status: 'upcoming',
+    status: 'active',
   },
   {
     id: 5,
@@ -703,6 +703,280 @@ const STATION3_BRUNO_TESTS = [
   },
 ]
 
+const STATION4_SERVER_CODE = `// server.js — نسخه ۳: گام چهارم (کمد حافظه Redis و صف انبار BullMQ)
+
+const fastify = require('fastify')({ logger: true });
+const { PrismaClient } = require('@prisma/client');
+const Redis = require('ioredis');
+const { Queue } = require('bullmq');
+
+const prisma = new PrismaClient();
+
+// ۱. اتصال به حافظه رم پرسرعت Redis
+const redis = new Redis({
+  host: process.env.REDIS_HOST || '127.0.0.1',
+  port: process.env.REDIS_PORT || 6379,
+  maxRetriesPerRequest: null // ضروری برای BullMQ
+});
+
+// ۲. ساخت صف نوتیفیکیشن‌ها در ردیس با BullMQ
+const notificationQueue = new Queue('safirNotifications', { connection: redis });
+
+// نبض سلامت (بررسی وضعیت Postgres و Redis)
+fastify.get('/health', async (request, reply) => {
+  try {
+    await prisma.$queryRaw\`SELECT 1\`;
+    const redisPing = await redis.ping();
+    return {
+      status: 'healthy',
+      database: 'connected (PostgreSQL)',
+      cache: \`connected (Redis PING: \${redisPing})\`,
+      uptime: process.uptime(),
+      timestamp: new Date().toISOString()
+    };
+  } catch (err) {
+    reply.status(500);
+    return { status: 'unhealthy', error: err.message };
+  }
+});
+
+// ۳. استعلام وضعیت سفارش با الگوی Cache-Aside (زیر ۱ میلی‌ثانیه در Hit)
+fastify.get('/api/orders/:orderNumber', async (request, reply) => {
+  const { orderNumber } = request.params;
+  const cacheKey = \`order:\${orderNumber}\`;
+  const startTime = Date.now();
+
+  // الف) اول ردیس را چک کن!
+  const cachedData = await redis.get(cacheKey);
+  if (cachedData) {
+    const elapsed = Date.now() - startTime;
+    reply.header('X-Cache-Status', 'HIT');
+    return {
+      success: true,
+      source: 'CACHE (Redis)',
+      responseTimeMs: elapsed,
+      order: JSON.parse(cachedData)
+    };
+  }
+
+  // ب) نبود (Cache Miss) -> دیتابیس را بخوان
+  const order = await prisma.order.findUnique({
+    where: { orderNumber: String(orderNumber) },
+    include: { customer: { select: { name: true, phone: true } } }
+  });
+
+  if (!order) {
+    reply.status(404);
+    return { success: false, error: \`سفارشی با شماره \${orderNumber} پیدا نشد!\` };
+  }
+
+  // ج) در ردیس با انقضای ۳۰۰ ثانیه‌ای ذخیره کن
+  await redis.setex(cacheKey, 300, JSON.stringify(order));
+  const elapsed = Date.now() - startTime;
+  reply.header('X-Cache-Status', 'MISS');
+
+  return {
+    success: true,
+    source: 'DATABASE (PostgreSQL)',
+    responseTimeMs: elapsed,
+    order
+  };
+});
+
+// ۴. تغییر وضعیت سفارش: باطل‌سازی کش قدیمی + انداختن کار پیامک در صف انبار
+fastify.patch('/api/orders/:orderNumber/status', async (request, reply) => {
+  const { orderNumber } = request.params;
+  const { status } = request.body || {};
+
+  if (!status) {
+    reply.status(400);
+    return { success: false, error: 'وضعیت جدید الزامی است.' };
+  }
+
+  // بروزرسانی در پایگاه داده
+  const updatedOrder = await prisma.order.update({
+    where: { orderNumber: String(orderNumber) },
+    data: { status }
+  });
+
+  // ۱. گام طلایی: باطل‌سازی کش کهنه در Redis!
+  await redis.del(\`order:\${orderNumber}\`);
+
+  // ۲. فرستادن کار سنگین اطلاع‌رسانی به صف BullMQ (پاسخ آنی به کلاینت)
+  const job = await notificationQueue.add('order-status-changed', {
+    orderNumber: updatedOrder.orderNumber,
+    newStatus: updatedOrder.status,
+    timestamp: new Date().toISOString()
+  }, {
+    attempts: 3,
+    backoff: { type: 'exponential', delay: 2000 }
+  });
+
+  return {
+    success: true,
+    message: 'وضعیت آپدیت شد، کش باطل گردید و کار پیامک به صف رفت.',
+    order: updatedOrder,
+    jobId: job.id
+  };
+});
+
+// ۵. پیگیری وضعیت پیشرفت جاب در صف توسط کلاینت
+fastify.get('/api/jobs/:id', async (request, reply) => {
+  const { id } = request.params;
+  const job = await notificationQueue.getJob(id);
+
+  if (!job) {
+    reply.status(404);
+    return { success: false, error: 'جاب یافت نشد.' };
+  }
+
+  const state = await job.getState();
+  return {
+    id: job.id,
+    name: job.name,
+    state,
+    result: job.returnvalue,
+    failedReason: job.failedReason
+  };
+});
+
+fastify.listen({ port: 3000, host: '0.0.0.0' }).then(addr => {
+  console.log(\`⚡ سرور سفیر مجهز به کمد Redis و صف BullMQ روی \${addr} به پرواز درآمد!\`);
+});`
+
+const STATION4_WORKER_CODE = `// worker.js — کارگر خستگی‌ناپذیر سفیر در پس‌زمینه (اجرا با node worker.js)
+
+const { Worker } = require('bullmq');
+const Redis = require('ioredis');
+
+const connection = new Redis({
+  host: process.env.REDIS_HOST || '127.0.0.1',
+  port: process.env.REDIS_PORT || 6379,
+  maxRetriesPerRequest: null
+});
+
+console.log('👷 کارگر پردازش سفیر بیدار شد و در حال شنود صف safirNotifications است...');
+
+const worker = new Worker('safirNotifications', async (job) => {
+  console.log(\`\\n📥 [شروع جاب #\${job.id}] \${job.name}\`);
+  console.log('📦 داده‌های ورودی:', job.data);
+
+  if (job.name === 'order-status-changed') {
+    // شبیه‌سازی ۲ ثانیه کار زمان‌بر: صدور فاکتور PDF و ارسال پیامک
+    console.log('⏳ در حال تولید فاکتور PDF و اتصال به وب‌سرویس پیامک...');
+    await new Promise((resolve) => setTimeout(resolve, 2000));
+
+    console.log(\`✅ پیامک تغییر وضعیت به شماره مشتری سفارش \${job.data.orderNumber} ارسال شد!\`);
+
+    return {
+      sentSms: true,
+      deliveredAt: new Date().toISOString(),
+      details: \`پیامک به شماره خریدار سفارش \${job.data.orderNumber} مخابره شد.\`
+    };
+  }
+
+  return { processed: true };
+}, { connection });
+
+worker.on('completed', (job, returnvalue) => {
+  console.log(\`🎉 جاب #\${job.id} با موفقیت پایان یافت. نتیجه:\`, returnvalue);
+});
+
+worker.on('failed', (job, err) => {
+  console.error(\`❌ خطا در اجرای جاب #\${job.id}:\`, err.message);
+});`
+
+const STATION4_BRUNO_TESTS = [
+  {
+    id: 1,
+    title: 'تست ۱: نبض سلامت دوگانه سرور، PostgreSQL و Redis',
+    method: 'GET',
+    url: 'http://localhost:3000/health',
+    status: '200 OK',
+    body: null,
+    expected: `{
+  "status": "healthy",
+  "database": "connected (PostgreSQL)",
+  "cache": "connected (Redis PING: PONG)",
+  "uptime": 4.12,
+  "timestamp": "2026-10-15T01:30:00.000Z"
+}`,
+  },
+  {
+    id: 2,
+    title: 'تست ۲: استعلام اول سفارش (Cache Miss — خواندن از دیسک DB در 45ms)',
+    method: 'GET',
+    url: 'http://localhost:3000/api/orders/2001',
+    status: '200 OK',
+    body: null,
+    expected: `{
+  "success": true,
+  "source": "DATABASE (PostgreSQL)",
+  "responseTimeMs": 42,
+  "order": {
+    "orderNumber": "2001",
+    "itemTitle": "کیت رباتیک هوشمند سفیر",
+    "status": "ثبت اولیه"
+  }
+}`,
+  },
+  {
+    id: 3,
+    title: 'تست ۳: استعلام دوم سفارش (Cache Hit — خواندن از رم Redis در 1ms!)',
+    method: 'GET',
+    url: 'http://localhost:3000/api/orders/2001',
+    status: '200 OK',
+    body: null,
+    expected: `{
+  "success": true,
+  "source": "CACHE (Redis)",
+  "responseTimeMs": 1,
+  "order": {
+    "orderNumber": "2001",
+    "itemTitle": "کیت رباتیک هوشمند سفیر",
+    "status": "ثبت اولیه"
+  }
+}`,
+  },
+  {
+    id: 4,
+    title: 'تست ۴: تغییر وضعیت سفارش، ابطال کش و ارسال کار به صف BullMQ (200 OK)',
+    method: 'PATCH',
+    url: 'http://localhost:3000/api/orders/2001/status',
+    status: '200 OK',
+    body: `{
+  "status": "تحویل راننده پیک داده شد"
+}`,
+    expected: `{
+  "success": true,
+  "message": "وضعیت آپدیت شد، کش باطل گردید و کار پیامک به صف رفت.",
+  "jobId": "1",
+  "order": {
+    "orderNumber": "2001",
+    "status": "تحویل راننده پیک داده شد"
+  }
+}`,
+  },
+  {
+    id: 5,
+    title: 'تست ۵: رهگیری پیشرفت جاب در صف توسط کلاینت (State: completed)',
+    method: 'GET',
+    url: 'http://localhost:3000/api/jobs/1',
+    status: '200 OK',
+    body: null,
+    expected: `{
+  "id": "1",
+  "name": "order-status-changed",
+  "state": "completed",
+  "result": {
+    "sentSms": true,
+    "details": "پیامک به شماره خریدار سفارش 2001 مخابره شد."
+  }
+}`,
+  },
+]
+
+
 export default function App() {
   const [docs, setDocs] = useState<Doc[]>([])
   const [loading, setLoading] = useState(true)
@@ -776,6 +1050,9 @@ export default function App() {
     }
     if (selectedStationId === 3) {
       return docs.find((d) => d.path.includes('فاز-۱۶')) ?? docs.find((d) => d.title.includes('نگهبان')) ?? null
+    }
+    if (selectedStationId === 4) {
+      return docs.find((d) => d.path.includes('فاز-۱۷')) ?? docs.find((d) => d.title.includes('انبار')) ?? null
     }
     return docs.find((d) => d.path.includes('فاز-۱۴')) ?? docs.find((d) => d.title.includes('تلفنچی')) ?? null
   }, [docs, selectedStationId])
@@ -854,7 +1131,7 @@ export default function App() {
           </div>
 
           {/* وسط: تب‌های روان کارگاهی برای مأموریت‌های فعال */}
-          {(selectedStationId === 1 || selectedStationId === 2 || selectedStationId === 3) && (
+          {(selectedStationId === 1 || selectedStationId === 2 || selectedStationId === 3 || selectedStationId === 4) && (
             <div className="flex items-center gap-1 bg-[var(--surface-2)] p-1 rounded-xl border border-[var(--border)] text-xs">
               <button
                 type="button"
@@ -1682,6 +1959,245 @@ export default function App() {
                         </div>
                         <pre className="p-4 overflow-x-auto text-xs leading-relaxed font-mono" dir="ltr">
                           <code>{STATION3_SERVER_CODE}</code>
+                        </pre>
+                      </div>
+                    </div>
+                  </div>
+                )}
+              </>
+            ) : selectedStationId === 4 ? (
+              <>
+                {/* تب ۱: متن اصلی درس ایستگاه ۴ با تایپوگرافی خوش‌خوان */}
+                {activeTab === 'reader' && activeDoc && (
+                  <article className="prose">
+                    <Markdown content={activeDoc.content} anchorPrefix="v3-" />
+                  </article>
+                )}
+
+                {/* تب ۲: جعبه‌ابزار و پیش‌نیازهای Redis و BullMQ */}
+                {activeTab === 'toolbox' && (
+                  <div className="flex flex-col gap-6 py-2">
+                    <div className="rounded-2xl border border-[var(--border)] bg-[var(--surface-2)] p-6">
+                      <h2 className="text-base font-bold text-[var(--text)] mb-2 flex items-center gap-2">
+                        <span>🧰</span>
+                        <span>جعبه‌ابزار مأموریت ۴ (کمد حافظه Redis و صف پردازش BullMQ)</span>
+                      </h2>
+                      <p className="text-xs text-[var(--text-muted)] leading-relaxed">
+                        این سرویس‌ها و پکیج‌ها را آماده کن تا سیستم کش سریع و صف‌های بدون معطلی را در سیستمت داشته باشی:
+                      </p>
+                    </div>
+
+                    <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                      {/* Redis */}
+                      <div className="rounded-2xl border border-[var(--border)] bg-[var(--surface)] p-5 flex flex-col justify-between gap-4">
+                        <div>
+                          <div className="flex items-center justify-between mb-2">
+                            <h3 className="font-bold text-sm text-[var(--text)]">۱. موتور پایگاه داده Redis ویندوز</h3>
+                            <span className="rounded bg-emerald-500/15 text-emerald-500 text-[0.65rem] px-2 py-0.5 font-bold">پورت 6379</span>
+                          </div>
+                          <p className="text-xs text-[var(--text-muted)] mb-3 leading-relaxed">
+                            پایگاه داده درون‌حافظه‌ای RAM برای کش مافوق‌صوت و نگهداری صف‌ها.
+                          </p>
+                          <div className="bg-[var(--surface-2)] border border-[var(--border)] rounded-xl p-2.5 font-mono text-xs text-[var(--primary)] flex items-center justify-between">
+                            <span>redis-cli ping</span>
+                            <button
+                              onClick={() => copyToClipboard('redis-cli ping', 'cmd-redis-ping')}
+                              className="text-xs text-[var(--text-muted)] hover:text-[var(--text)] font-sans"
+                            >
+                              {copiedKey === 'cmd-redis-ping' ? 'کپی شد!' : 'کپی'}
+                            </button>
+                          </div>
+                        </div>
+                        <a
+                          href="https://github.com/tporadowski/redis/releases"
+                          target="_blank"
+                          rel="noreferrer"
+                          className="text-center rounded-xl bg-[var(--surface-2)] hover:bg-[var(--primary)] hover:text-white text-[var(--text)] font-bold text-xs py-2.5 transition-all border border-[var(--border)]"
+                        >
+                          دانلود فایل زیپ پرتابل ردیس ویندوز ↗
+                        </a>
+                      </div>
+
+                      {/* ioredis */}
+                      <div className="rounded-2xl border border-[var(--border)] bg-[var(--surface)] p-5 flex flex-col justify-between gap-4">
+                        <div>
+                          <div className="flex items-center justify-between mb-2">
+                            <h3 className="font-bold text-sm text-[var(--text)]">۲. پکیج کلاینت ioredis</h3>
+                            <span className="rounded bg-cyan-500/15 text-cyan-500 text-[0.65rem] px-2 py-0.5 font-bold">درایور پرسرعت</span>
+                          </div>
+                          <p className="text-xs text-[var(--text-muted)] mb-3 leading-relaxed">
+                            درایور قدرتمند اتصال پایدار Node.js به سرور ردیس.
+                          </p>
+                          <div className="bg-[var(--surface-2)] border border-[var(--border)] rounded-xl p-2.5 font-mono text-xs text-[var(--text)] flex items-center justify-between">
+                            <span>npm install ioredis</span>
+                            <button
+                              onClick={() => copyToClipboard('npm install ioredis', 'cmd-ioredis')}
+                              className="text-xs text-[var(--text-muted)] hover:text-[var(--text)] font-sans"
+                            >
+                              {copiedKey === 'cmd-ioredis' ? 'کپی شد!' : 'کپی'}
+                            </button>
+                          </div>
+                        </div>
+                      </div>
+
+                      {/* BullMQ */}
+                      <div className="rounded-2xl border border-[var(--border)] bg-[var(--surface)] p-5 flex flex-col justify-between gap-4 md:col-span-2">
+                        <div>
+                          <div className="flex items-center justify-between mb-2">
+                            <h3 className="font-bold text-sm text-[var(--text)]">۳. پکیج موتور صف BullMQ</h3>
+                            <span className="rounded bg-amber-500/15 text-amber-500 text-[0.65rem] px-2 py-0.5 font-bold">مدیریت جاب‌ها</span>
+                          </div>
+                          <p className="text-xs text-[var(--text-muted)] mb-3 leading-relaxed">
+                            سیستم صف حرفه‌ای برای اجرای پردازش‌های پس‌زمینه، پیامک و تسک‌های سنگین با قابلیت Retry.
+                          </p>
+                          <div className="bg-[var(--surface-2)] border border-[var(--border)] rounded-xl p-3 font-mono text-xs text-[var(--text)] flex items-center justify-between">
+                            <span>npm install bullmq</span>
+                            <button
+                              onClick={() => copyToClipboard('npm install bullmq', 'cmd-bullmq')}
+                              className="rounded bg-[var(--surface-3)] px-3 py-1 text-xs font-sans text-[var(--text)] hover:bg-[var(--primary)] hover:text-white"
+                            >
+                              {copiedKey === 'cmd-bullmq' ? 'کپی شد! ✓' : 'کپی دستور'}
+                            </button>
+                          </div>
+                        </div>
+                      </div>
+                    </div>
+                  </div>
+                )}
+
+                {/* تب ۳: میز تست Bruno */}
+                {activeTab === 'bruno' && (
+                  <div className="flex flex-col gap-5 py-2">
+                    <div className="rounded-2xl border border-[var(--border)] bg-[var(--surface-2)] p-5">
+                      <h2 className="text-sm font-bold text-[var(--text)] mb-1">سناریوهای تست کمد حافظه، Cache Hit/Miss و صف BullMQ</h2>
+                      <p className="text-xs text-[var(--text-muted)] leading-relaxed">
+                        این ۵ سناریو را برای مشاهده سرعت زیر ۲ میلی‌ثانیه‌ای کش و رهگیری جاب‌های صف آزمایش کن:
+                      </p>
+                    </div>
+
+                    <div className="flex flex-col gap-4">
+                      {STATION4_BRUNO_TESTS.map((t) => (
+                        <div key={t.id} className="rounded-2xl border border-[var(--border)] bg-[var(--surface)] p-5 flex flex-col gap-3 shadow-sm">
+                          <div className="flex items-center justify-between border-b border-[var(--border)] pb-2.5">
+                            <div className="flex items-center gap-2">
+                              <span
+                                className={`rounded px-2 py-0.5 text-xs font-black ${
+                                  t.method === 'GET'
+                                    ? 'bg-emerald-500/15 text-emerald-500'
+                                    : t.method === 'PATCH'
+                                    ? 'bg-purple-500/15 text-purple-500'
+                                    : 'bg-blue-500/15 text-blue-500'
+                                }`}
+                              >
+                                {t.method}
+                              </span>
+                              <span className="font-bold text-xs text-[var(--text)]">{t.title}</span>
+                            </div>
+                            <span className="text-xs font-mono font-bold text-[var(--primary)] bg-[var(--surface-2)] px-2 py-1 rounded border border-[var(--border)]">
+                              Status: {t.status}
+                            </span>
+                          </div>
+
+                          <div className="flex items-center justify-between bg-[var(--surface-2)] p-2.5 rounded-xl border border-[var(--border)] font-mono text-xs text-[var(--text)]">
+                            <span>{t.url}</span>
+                            <button
+                              onClick={() => copyToClipboard(t.url, `st4-url-${t.id}`)}
+                              className="text-xs text-[var(--text-muted)] hover:text-[var(--text)] font-sans"
+                            >
+                              {copiedKey === `st4-url-${t.id}` ? 'کپی شد!' : 'کپی آدرس'}
+                            </button>
+                          </div>
+
+                          {t.body && (
+                            <div className="flex flex-col gap-1">
+                              <div className="flex items-center justify-between text-xs text-[var(--text-muted)]">
+                                <span>بدنه ارسال (Body - JSON):</span>
+                                <button
+                                  onClick={() => copyToClipboard(t.body!, `st4-body-${t.id}`)}
+                                  className="text-[var(--primary)] hover:underline text-[0.72rem]"
+                                >
+                                  {copiedKey === `st4-body-${t.id}` ? 'کپی شد! ✓' : 'کپی بدنه'}
+                                </button>
+                              </div>
+                              <pre className="bg-[var(--surface-2)] p-3 rounded-xl border border-[var(--border)] font-mono text-xs text-[var(--text)] overflow-x-auto text-left" dir="ltr">
+                                <code>{t.body}</code>
+                              </pre>
+                            </div>
+                          )}
+
+                          <div className="flex flex-col gap-1">
+                            <span className="text-xs text-[var(--text-muted)]">پاسخ سرور:</span>
+                            <pre className="bg-[var(--surface-2)] p-3 rounded-xl border border-[var(--border)] font-mono text-xs text-[var(--text-muted)] overflow-x-auto text-left" dir="ltr">
+                              <code>{t.expected}</code>
+                            </pre>
+                          </div>
+                        </div>
+                      ))}
+                    </div>
+                  </div>
+                )}
+
+                {/* تب ۴: کدهای سرور و کارگر صف */}
+                {activeTab === 'code' && (
+                  <div className="flex flex-col gap-6 py-2">
+                    {/* کدهای سرور اصلی */}
+                    <div className="flex flex-col gap-2">
+                      <div className="flex items-center justify-between bg-[var(--surface-2)] border border-[var(--border)] p-3 rounded-2xl">
+                        <div className="flex flex-col">
+                          <span className="font-bold text-sm text-[var(--text)]">۱. کدهای سرور اصلی با کش Redis و صف BullMQ</span>
+                          <span className="text-xs text-[var(--text-muted)]">فایل server.js</span>
+                        </div>
+                        <button
+                          type="button"
+                          onClick={() => copyToClipboard(STATION4_SERVER_CODE, 'code-st4-server')}
+                          className="rounded-xl bg-[var(--primary)] px-3 py-1.5 text-xs font-bold text-white hover:opacity-90 shadow-sm transition-all"
+                        >
+                          {copiedKey === 'code-st4-server' ? 'کپی شد! ✓' : 'کپی کد سرور'}
+                        </button>
+                      </div>
+
+                      <div className="terminal-window my-1">
+                        <div className="terminal-header">
+                          <div className="terminal-dots">
+                            <span className="terminal-dot terminal-dot-red" />
+                            <span className="terminal-dot terminal-dot-yellow" />
+                            <span className="terminal-dot terminal-dot-green" />
+                          </div>
+                          <span className="font-mono text-xs text-[var(--text-muted)]">server.js (Cache & Queue)</span>
+                        </div>
+                        <pre className="p-4 overflow-x-auto text-xs leading-relaxed font-mono" dir="ltr">
+                          <code>{STATION4_SERVER_CODE}</code>
+                        </pre>
+                      </div>
+                    </div>
+
+                    {/* کدهای کارگر worker.js */}
+                    <div className="flex flex-col gap-2">
+                      <div className="flex items-center justify-between bg-[var(--surface-2)] border border-[var(--border)] p-3 rounded-2xl">
+                        <div className="flex flex-col">
+                          <span className="font-bold text-sm text-[var(--text)]">۲. کدهای کارگر پس‌زمینه (Worker Process)</span>
+                          <span className="text-xs text-[var(--text-muted)]">فایل مستقل worker.js (اجرا با node worker.js)</span>
+                        </div>
+                        <button
+                          type="button"
+                          onClick={() => copyToClipboard(STATION4_WORKER_CODE, 'code-st4-worker')}
+                          className="rounded-xl bg-[var(--primary)] px-3 py-1.5 text-xs font-bold text-white hover:opacity-90 shadow-sm transition-all"
+                        >
+                          {copiedKey === 'code-st4-worker' ? 'کپی شد! ✓' : 'کپی کد کارگر'}
+                        </button>
+                      </div>
+
+                      <div className="terminal-window my-1">
+                        <div className="terminal-header">
+                          <div className="terminal-dots">
+                            <span className="terminal-dot terminal-dot-red" />
+                            <span className="terminal-dot terminal-dot-yellow" />
+                            <span className="terminal-dot terminal-dot-green" />
+                          </div>
+                          <span className="font-mono text-xs text-[var(--text-muted)]">worker.js (Background Processor)</span>
+                        </div>
+                        <pre className="p-4 overflow-x-auto text-xs leading-relaxed font-mono" dir="ltr">
+                          <code>{STATION4_WORKER_CODE}</code>
                         </pre>
                       </div>
                     </div>
