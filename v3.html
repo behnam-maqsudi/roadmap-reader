@@ -1,0 +1,42 @@
+<!doctype html>
+<html lang="fa" dir="rtl">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>خوانندهٔ نقشهٔ راه — نسخهٔ ۳ (پروژه سفیر)</title>
+    <meta
+      name="description"
+      content="نسخهٔ سوم خوانندهٔ نقشهٔ راه: یادگیری چریکی، داستان‌محور و پروژه‌محور بر پایه پروژه سفیر"
+    />
+
+    <!-- فونت‌های محلی کاملاً آفلاین -->
+    <link
+      rel="preload"
+      href="/fonts/IRANSansWeb.woff2"
+      as="font"
+      type="font/woff2"
+      crossorigin
+    />
+    <link
+      rel="preload"
+      href="/fonts/IRANSansWeb_Bold.woff2"
+      as="font"
+      type="font/woff2"
+      crossorigin
+    />
+
+    <script>
+      try {
+        var t = localStorage.getItem('roadmap-reader-v3-theme') || 'dark';
+        if (t === 'dark') {
+          document.documentElement.classList.add('dark');
+        }
+        document.documentElement.dataset.theme = t;
+      } catch (e) {}
+    </script>
+  </head>
+  <body class="bg-slate-950 text-slate-100 antialiased selection:bg-cyan-500/30 selection:text-cyan-200">
+    <div id="root"></div>
+    <script type="module" src="/src/v3/main.tsx"></script>
+  </body>
+</html>

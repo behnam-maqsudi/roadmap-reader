@@ -1,0 +1,49 @@
+/**
+ * styles.css — استایل‌های یکپارچه نسخه ۳ با تمام کارت‌ها، تم‌ها و ترمینال‌ها
+ */
+@import '../v2/styles.css';
+
+/* ── اصلاحات اختصاصی نسخه ۳ برای ارگونومی و عدم تداخل RTL ── */
+
+/* بلوک‌های کد حتماً باید چپ‌به‌راست و تراز چپ باشند تا پرانتزها و جیسون به هم نریزند */
+pre,
+code.hljs,
+.terminal-window pre,
+.diagram pre {
+  direction: ltr !important;
+  text-align: left !important;
+  font-family: var(--font-mono, monospace) !important;
+}
+
+/* لنگر سرتیترها فقط هنگام هاور روی تیتر دیده شود */
+.heading-anchor {
+  opacity: 0;
+  text-decoration: none;
+  font-size: 0.85em;
+  color: var(--text-faint);
+  margin-inline-start: 0.4rem;
+  transition: opacity 0.15s ease-in-out;
+}
+
+.prose h1:hover .heading-anchor,
+.prose h2:hover .heading-anchor,
+.prose h3:hover .heading-anchor,
+.prose h4:hover .heading-anchor {
+  opacity: 0.6;
+}
+
+.heading-anchor:hover {
+  opacity: 1 !important;
+  color: var(--primary);
+}
+
+/* کارت‌های کال‌اوت تمیز با فاصله مناسب */
+.prose .callout {
+  margin-block: 1.5rem;
+}
+
+/* استایل جدول‌ها */
+.prose table {
+  width: 100%;
+  margin-block: 1.5rem;
+}

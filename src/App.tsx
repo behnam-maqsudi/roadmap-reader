@@ -433,6 +433,27 @@ export default function App() {
           >
             ⚙ تنظیمات
           </button>
+
+          <a
+            href="/v2.html"
+            className="btn"
+            style={{ textDecoration: 'none', fontSize: '0.8rem' }}
+          >
+            نسخهٔ ۲
+          </a>
+          <a
+            href="/v3.html"
+            className="btn"
+            style={{
+              textDecoration: 'none',
+              fontSize: '0.8rem',
+              background: '#06b6d4',
+              color: '#020617',
+              fontWeight: 'bold',
+            }}
+          >
+            🚀 نسخهٔ ۳ (سفیر)
+          </a>
         </header>
       )}
 

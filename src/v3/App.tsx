@@ -1,0 +1,992 @@
+/**
+ * App.tsx — محیط اختصاصی نسخه ۳ با کنترل کامل روی ظاهر، قلم، رنگ‌بندی و چیدمان ارگونومیک
+ */
+import { useEffect, useMemo, useState } from 'react'
+import { loadDocs } from '../docs'
+import { extractHeadings } from '../slug'
+import { Markdown } from '../v2/Markdown'
+import type { Doc } from '../types'
+
+interface V3Settings {
+  theme: 'dark' | 'sepia' | 'light' | 'nord' | 'monokai'
+  fontFamily: 'iransans' | 'vazirmatn' | 'system'
+  fontSize: number
+  lineHeight: number
+  readingWidth: 'compact' | 'standard' | 'wide' | 'full'
+}
+
+const DEFAULT_SETTINGS: V3Settings = {
+  theme: 'dark',
+  fontFamily: 'iransans',
+  fontSize: 17,
+  lineHeight: 1.95,
+  readingWidth: 'standard',
+}
+
+interface Station {
+  id: number
+  title: string
+  subtitle: string
+  product: string
+  status: 'active' | 'upcoming'
+}
+
+const STATIONS: Station[] = [
+  {
+    id: 1,
+    title: 'تلفنچی رستوران',
+    subtitle: 'سرور وب و چت خام',
+    product: 'وب‌سرور زنده Fastify با قابلیت تبادل پیام و تست با Bruno',
+    status: 'active',
+  },
+  {
+    id: 2,
+    title: 'دفترچه تلفن و بایگانی',
+    subtitle: 'دیتابیس و مدل‌سازی داده',
+    product: 'ثبت محصولات، تیکت‌ها و سفارشات در PostgreSQL با Prisma',
+    status: 'upcoming',
+  },
+  {
+    id: 3,
+    title: 'کارت شناسایی و نگهبان',
+    subtitle: 'احراز هویت و مجوزها',
+    product: 'سیستم ورود امن و تفکیک مشتری عادی از مدیر پشتیبانی با JWT',
+    status: 'upcoming',
+  },
+  {
+    id: 4,
+    title: 'کمد حافظه و صف انبار',
+    subtitle: 'کش و صف پردازش غیرهمگام',
+    product: 'کش کردن سوالات تکراری و صف پردازش کارهای سنگین با Redis & BullMQ',
+    status: 'upcoming',
+  },
+  {
+    id: 5,
+    title: 'مغز متفکر',
+    subtitle: 'اتصال به مدل‌های زبانی',
+    product: 'پاسخگویی هوشمند به پیام‌ها در قالب JSON ساختاریافته',
+    status: 'upcoming',
+  },
+  {
+    id: 6,
+    title: 'کتابخانه و رفرنس',
+    subtitle: 'بازیابی اطلاعات و وکتور',
+    product: 'جستجوی معنایی در کاتالوگ و قوانین با pgvector (RAG)',
+    status: 'upcoming',
+  },
+  {
+    id: 7,
+    title: 'دست‌به‌آچار شدن',
+    subtitle: 'ایجنت‌های خودمختار و ابزارها',
+    product: 'پیگیری و ویرایش وضعیت سفارشات در دیتابیس توسط مدل (Function Calling)',
+    status: 'upcoming',
+  },
+  {
+    id: 8,
+    title: 'ضدگلوله کردن',
+    subtitle: 'امنیت، مانیتورینگ و کانتینر',
+    product: 'کانتینرسازی با Docker، گاردریل امنیتی و مانیتورینگ هزینه در پروداکشن',
+    status: 'upcoming',
+  },
+]
+
+const SERVER_CODE = `// server.js — سنگ‌بنای پروژه سفیر (نسخه ۳: گام اول)
+
+const fastify = require('fastify')({
+  logger: true // لاگ رنگی تمام درخواست‌های رسیده در ترمینال
+});
+
+// ۱. مسیر تست سلامت (Health Check): آیا سرور بیدار است؟
+fastify.get('/health', async (request, reply) => {
+  return {
+    status: 'healthy',
+    service: 'Safir Core Assistant',
+    uptime: process.uptime(),
+    timestamp: new Date().toISOString()
+  };
+});
+
+// ۲. مسیر دریافت پیام چت از مشتری (Chat Endpoint)
+fastify.post('/api/chat', async (request, reply) => {
+  const body = request.body;
+
+  // اعتبارسنجی ساده: آیا پیامی ارسال شده است؟
+  if (!body || !body.message || body.message.trim() === '') {
+    reply.status(400); // خطای اشتباه مشتری
+    return {
+      success: false,
+      error: 'متن پیام نمی‌تواند خالی باشد!'
+    };
+  }
+
+  const userMessage = body.message;
+  const userName = body.name || 'کاربر گرامی';
+
+  const botReply = \`درود \${userName}! پیام شما («\${userMessage}») در سامانه سفیر دریافت شد. هم‌اکنون در حال بررسی درخواستت هستم.\`;
+
+  return {
+    success: true,
+    reply: botReply,
+    receivedAt: new Date().toISOString()
+  };
+});
+
+// ۳. مسیر استعلام وضعیت سفارش بر اساس شماره (GET with URL Parameter)
+fastify.get('/api/orders/:id', async (request, reply) => {
+  const orderId = request.params.id;
+
+  const fakeDatabase = {
+    '101': { item: 'هدفون گیمینگ', status: 'تحویل پست داده شد', city: 'تهران' },
+    '102': { item: 'کتاب طراحی سیستم', status: 'در حال بسته‌بندی در انبار', city: 'اصفهان' },
+    '103': { item: 'ماگ سفالی برنامه‌نویسی', status: 'تحویل داده شده به خریدار', city: 'شیراز' }
+  };
+
+  const foundOrder = fakeDatabase[orderId];
+
+  if (!foundOrder) {
+    reply.status(404);
+    return {
+      success: false,
+      error: \`سفارشی با شناسه \${orderId} پیدا نشد!\`
+    };
+  }
+
+  return {
+    success: true,
+    orderId: orderId,
+    details: foundOrder
+  };
+});
+
+// ۴. روشن کردن موتور سرور روی پورت ۳۰۰۰
+const startServer = async () => {
+  try {
+    const address = await fastify.listen({ port: 3000, host: '0.0.0.0' });
+    console.log(\`\\n🚀 سرور سفیر با موفقیت روی آدرس \${address} به پرواز درآمد!\\n\`);
+  } catch (err) {
+    fastify.log.error(err);
+    process.exit(1);
+  }
+};
+
+startServer();`
+
+const BRUNO_TESTS = [
+  {
+    id: 1,
+    title: 'تست ۱: نبض سرور (Health Check)',
+    method: 'GET',
+    url: 'http://localhost:3000/health',
+    status: '200 OK',
+    body: null,
+    expected: `{
+  "status": "healthy",
+  "service": "Safir Core Assistant",
+  "uptime": 14.52,
+  "timestamp": "2026-10-15T00:15:00.000Z"
+}`,
+  },
+  {
+    id: 2,
+    title: 'تست ۲: ارسال پیام چت موفق',
+    method: 'POST',
+    url: 'http://localhost:3000/api/chat',
+    status: '200 OK',
+    body: `{
+  "name": "بهنام",
+  "message": "سلام سفیر! وضعیت بسته‌ام رو چک کن"
+}`,
+    expected: `{
+  "success": true,
+  "reply": "درود بهنام! پیام شما («سلام سفیر! وضعیت بسته‌ام رو چک کن») در سامانه سفیر دریافت شد...",
+  "receivedAt": "2026-10-15T00:16:12.123Z"
+}`,
+  },
+  {
+    id: 3,
+    title: 'تست ۳: خطای پیام خالی (اعتبارسنجی ورودی)',
+    method: 'POST',
+    url: 'http://localhost:3000/api/chat',
+    status: '400 Bad Request',
+    body: `{
+  "name": "بهنام",
+  "message": ""
+}`,
+    expected: `{
+  "success": false,
+  "error": "متن پیام نمی‌تواند خالی باشد!"
+}`,
+  },
+  {
+    id: 4,
+    title: 'تست ۴: استعلام سفارش موجود',
+    method: 'GET',
+    url: 'http://localhost:3000/api/orders/101',
+    status: '200 OK',
+    body: null,
+    expected: `{
+  "success": true,
+  "orderId": "101",
+  "details": {
+    "item": "هدفون گیمینگ",
+    "status": "تحویل پست داده شد",
+    "city": "تهران"
+  }
+}`,
+  },
+  {
+    id: 5,
+    title: 'تست ۵: استعلام سفارش ناموجود',
+    method: 'GET',
+    url: 'http://localhost:3000/api/orders/999',
+    status: '404 Not Found',
+    body: null,
+    expected: `{
+  "success": false,
+  "error": "سفارشی با شناسه 999 پیدا نشد!"
+}`,
+  },
+]
+
+export default function App() {
+  const [docs, setDocs] = useState<Doc[]>([])
+  const [loading, setLoading] = useState(true)
+  const [selectedStationId, setSelectedStationId] = useState<number>(1)
+  const [activeTab, setActiveTab] = useState<'reader' | 'toolbox' | 'bruno' | 'code'>('reader')
+  const [copiedKey, setCopiedKey] = useState<string | null>(null)
+
+  // پنل‌های کناری جمع‌شونده (برای جلوگیری از شلوغی)
+  const [sidebarOpen, setSidebarOpen] = useState(true)
+  const [tocOpen, setTocOpen] = useState(false)
+  const [settingsOpen, setSettingsOpen] = useState(false)
+
+  // تنظیمات کاربر (با ذخیره در localStorage)
+  const [settings, setSettings] = useState<V3Settings>(() => {
+    try {
+      const saved = localStorage.getItem('roadmap-reader-v3-settings')
+      if (saved) return { ...DEFAULT_SETTINGS, ...JSON.parse(saved) }
+    } catch {}
+    return DEFAULT_SETTINGS
+  })
+
+  // اعمال تنظیمات روی تگ html و استایل‌ها
+  useEffect(() => {
+    try {
+      localStorage.setItem('roadmap-reader-v3-settings', JSON.stringify(settings))
+    } catch {}
+
+    const root = document.documentElement
+    root.dataset.theme = settings.theme
+    if (settings.theme === 'dark' || settings.theme === 'monokai') {
+      root.classList.add('dark')
+    } else {
+      root.classList.remove('dark')
+    }
+
+    // تنظیم فونت
+    let fontStack = "'IRANSans', system-ui, sans-serif"
+    if (settings.fontFamily === 'vazirmatn') {
+      fontStack = "'Vazirmatn', system-ui, sans-serif"
+    } else if (settings.fontFamily === 'system') {
+      fontStack = "system-ui, -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif"
+    }
+
+    root.style.setProperty('--v3-font-family', fontStack)
+    root.style.setProperty('--app-font-family', fontStack)
+    root.style.setProperty('--app-font-size', `${settings.fontSize}px`)
+    root.style.setProperty('--app-line-height', String(settings.lineHeight))
+    document.body.style.fontFamily = fontStack
+  }, [settings])
+
+  useEffect(() => {
+    loadDocs().then((d) => {
+      setDocs(d)
+      setLoading(false)
+    })
+  }, [])
+
+  const copyToClipboard = (text: string, key: string) => {
+    navigator.clipboard.writeText(text)
+    setCopiedKey(key)
+    setTimeout(() => setCopiedKey(null), 2000)
+  }
+
+  // یافتن سند فاز ۱۴ یا سند نقشه راه ۳
+  const activeDoc = useMemo(() => {
+    if (selectedStationId === 0) {
+      return docs.find((d) => d.path.includes('03-نقشه-راه-چریکی')) ?? null
+    }
+    return docs.find((d) => d.path.includes('فاز-۱۴')) ?? docs.find((d) => d.title.includes('تلفنچی')) ?? null
+  }, [docs, selectedStationId])
+
+  // استخراج تیترهای فهرست
+  const headings = useMemo(() => {
+    if (!activeDoc) return []
+    return extractHeadings(activeDoc.content).filter((h) => h.level === 2 || h.level === 3)
+  }, [activeDoc])
+
+  const scrollToHeading = (id: string) => {
+    const el = document.getElementById(`v3-${id}`)
+    if (el) {
+      el.scrollIntoView({ behavior: 'smooth', block: 'start' })
+    }
+  }
+
+  // عرض ستون مطالعه
+  const readingWidthClass = useMemo(() => {
+    switch (settings.readingWidth) {
+      case 'compact':
+        return 'max-w-2xl' // 672px
+      case 'standard':
+        return 'max-w-3xl' // 768px - استاندارد کتابی
+      case 'wide':
+        return 'max-w-5xl' // 1024px
+      case 'full':
+        return 'max-w-none'
+      default:
+        return 'max-w-3xl'
+    }
+  }, [settings.readingWidth])
+
+  if (loading) {
+    return (
+      <div className="flex min-h-screen items-center justify-center bg-[var(--bg,#090d16)] text-[var(--text-muted,#94a3b8)] font-medium">
+        در حال بارگذاری…
+      </div>
+    )
+  }
+
+  return (
+    <div
+      className="min-h-screen bg-[var(--bg)] text-[var(--text)] transition-colors duration-200 flex flex-col"
+      style={{ fontSize: `${settings.fontSize}px`, lineHeight: settings.lineHeight }}
+    >
+      {/* ── نوار بالای صفحه (مینیمال و تمیز) ── */}
+      <header className="sticky top-0 z-40 border-b border-[var(--border)] bg-[var(--surface)]/95 backdrop-blur-md px-4 py-2.5">
+        <div className="mx-auto flex max-w-7xl items-center justify-between gap-4">
+          {/* سمت راست: دکمه منو + لوگو */}
+          <div className="flex items-center gap-3">
+            <button
+              type="button"
+              onClick={() => setSidebarOpen((v) => !v)}
+              className={`flex items-center gap-1.5 rounded-lg border px-2.5 py-1.5 text-xs font-semibold transition-all ${
+                sidebarOpen
+                  ? 'border-[var(--primary)] bg-[var(--primary)]/10 text-[var(--primary)]'
+                  : 'border-[var(--border)] text-[var(--text-muted)] hover:text-[var(--text)]'
+              }`}
+              title="نمایش یا پنهان کردن فهرست ایستگاه‌ها"
+            >
+              <span>☰</span>
+              <span className="hidden sm:inline">ایستگاه‌ها</span>
+            </button>
+
+            <div className="flex items-center gap-2">
+              <span className="text-sm font-black tracking-tight text-[var(--text)]">
+                سفیر
+              </span>
+              <span className="text-xs text-[var(--text-muted)] hidden md:inline">
+                / {selectedStationId === 0 ? 'نقشه راه کلان' : `ایستگاه ${selectedStationId}: تلفنچی رستوران`}
+              </span>
+            </div>
+          </div>
+
+          {/* وسط: تب‌های روان کارگاهی */}
+          {selectedStationId === 1 && (
+            <div className="flex items-center gap-1 bg-[var(--surface-2)] p-1 rounded-xl border border-[var(--border)] text-xs">
+              <button
+                type="button"
+                onClick={() => setActiveTab('reader')}
+                className={`px-3 py-1.5 rounded-lg font-bold transition-all ${
+                  activeTab === 'reader'
+                    ? 'bg-[var(--surface)] text-[var(--text)] shadow-sm'
+                    : 'text-[var(--text-muted)] hover:text-[var(--text)]'
+                }`}
+              >
+                📖 متن درس
+              </button>
+              <button
+                type="button"
+                onClick={() => setActiveTab('toolbox')}
+                className={`px-3 py-1.5 rounded-lg font-bold transition-all ${
+                  activeTab === 'toolbox'
+                    ? 'bg-[var(--surface)] text-[var(--text)] shadow-sm'
+                    : 'text-[var(--text-muted)] hover:text-[var(--text)]'
+                }`}
+              >
+                🧰 جعبه‌ابزار
+              </button>
+              <button
+                type="button"
+                onClick={() => setActiveTab('bruno')}
+                className={`px-3 py-1.5 rounded-lg font-bold transition-all ${
+                  activeTab === 'bruno'
+                    ? 'bg-[var(--surface)] text-[var(--text)] shadow-sm'
+                    : 'text-[var(--text-muted)] hover:text-[var(--text)]'
+                }`}
+              >
+                🧪 تست با Bruno
+              </button>
+              <button
+                type="button"
+                onClick={() => setActiveTab('code')}
+                className={`px-3 py-1.5 rounded-lg font-bold transition-all ${
+                  activeTab === 'code'
+                    ? 'bg-[var(--surface)] text-[var(--text)] shadow-sm'
+                    : 'text-[var(--text-muted)] hover:text-[var(--text)]'
+                }`}
+              >
+                💻 کد سرور
+              </button>
+            </div>
+          )}
+
+          {/* سمت چپ: دکمه تنظیمات + سرفصل‌ها + سوییچر نسخه */}
+          <div className="flex items-center gap-2">
+            {headings.length > 0 && activeTab === 'reader' && (
+              <button
+                type="button"
+                onClick={() => setTocOpen((v) => !v)}
+                className={`hidden lg:flex items-center gap-1 rounded-lg border px-2.5 py-1.5 text-xs font-semibold transition-all ${
+                  tocOpen
+                    ? 'border-[var(--primary)] bg-[var(--primary)]/10 text-[var(--primary)]'
+                    : 'border-[var(--border)] text-[var(--text-muted)] hover:text-[var(--text)]'
+                }`}
+                title="نمایش سرفصل‌های این بخش"
+              >
+                <span>📑</span>
+                <span>سرفصل‌ها</span>
+              </button>
+            )}
+
+            {/* کنترل سریع اندازه قلم */}
+            <div className="hidden sm:flex items-center gap-0.5 border border-[var(--border)] rounded-lg bg-[var(--surface-2)] p-0.5 text-xs">
+              <button
+                type="button"
+                onClick={() => setSettings((s) => ({ ...s, fontSize: Math.max(s.fontSize - 1, 13) }))}
+                className="px-2 py-1 rounded hover:bg-[var(--surface)] text-[var(--text-muted)] hover:text-[var(--text)]"
+                title="کوچک‌تر کردن متن"
+              >
+                A−
+              </button>
+              <span className="px-1 font-mono text-[0.7rem] text-[var(--text-faint)]">
+                {settings.fontSize}
+              </span>
+              <button
+                type="button"
+                onClick={() => setSettings((s) => ({ ...s, fontSize: Math.min(s.fontSize + 1, 26) }))}
+                className="px-2 py-1 rounded hover:bg-[var(--surface)] text-[var(--text-muted)] hover:text-[var(--text)]"
+                title="بزرگ‌تر کردن متن"
+              >
+                A+
+              </button>
+            </div>
+
+            {/* دکمه باز کردن پنجره تنظیمات کامل */}
+            <button
+              type="button"
+              onClick={() => setSettingsOpen(true)}
+              className="flex items-center gap-1.5 rounded-lg border border-[var(--border)] bg-[var(--surface-2)] px-3 py-1.5 text-xs font-bold text-[var(--text)] hover:border-[var(--primary)] transition-all shadow-sm"
+              title="تنظیم رنگ‌بندی، فونت و ظاهر"
+            >
+              <span>⚙️</span>
+              <span className="hidden sm:inline">تنظیمات ظاهر</span>
+            </button>
+
+            {/* سوییچر نسخه‌ها */}
+            <div className="flex items-center gap-1 text-[0.7rem] font-bold border-s border-[var(--border)] ps-2 ms-1">
+              <a
+                href="/index.html"
+                className="rounded px-2 py-1 text-[var(--text-faint)] hover:text-[var(--text)] transition-colors"
+                title="نسخه ۱ (اسکلت)"
+              >
+                v1
+              </a>
+              <a
+                href="/v2.html"
+                className="rounded px-2 py-1 text-[var(--text-faint)] hover:text-[var(--text)] transition-colors"
+                title="نسخه ۲ (تکنیکال)"
+              >
+                v2
+              </a>
+              <span className="rounded bg-[var(--primary)]/15 text-[var(--primary)] px-2 py-1">
+                v3
+              </span>
+            </div>
+          </div>
+        </div>
+      </header>
+
+      {/* ── بدنه اصلی چیدمان ── */}
+      <div className="mx-auto flex w-full max-w-7xl flex-1 items-start gap-8 p-4 sm:p-6">
+        {/* ── ستون کناری: ایستگاه‌های دوره (قابلیت بستن برای عدم شلوغی) ── */}
+        {sidebarOpen && (
+          <aside className="w-72 shrink-0 flex flex-col gap-3 sticky top-16 max-h-[calc(100vh-5rem)] overflow-y-auto pe-1">
+            <div className="flex items-center justify-between text-xs text-[var(--text-faint)] px-1">
+              <span className="font-bold">ایستگاه‌های نسخه ۳</span>
+              <span>۱ از ۸</span>
+            </div>
+
+            <button
+              type="button"
+              onClick={() => setSelectedStationId(0)}
+              className={`rounded-xl p-3 text-right text-xs transition-all border ${
+                selectedStationId === 0
+                  ? 'border-[var(--primary)] bg-[var(--surface-2)] text-[var(--text)] font-bold shadow-sm'
+                  : 'border-[var(--border)] bg-[var(--surface)] text-[var(--text-muted)] hover:text-[var(--text)]'
+              }`}
+            >
+              🗺️ مانیفست و نقشه راه چریکی
+            </button>
+
+            <nav className="flex flex-col gap-1.5">
+              {STATIONS.map((st) => {
+                const isActive = selectedStationId === st.id
+                return (
+                  <button
+                    key={st.id}
+                    type="button"
+                    onClick={() => setSelectedStationId(st.id)}
+                    className={`rounded-xl p-3 text-right transition-all border flex flex-col gap-1 ${
+                      isActive
+                        ? 'border-[var(--primary)] bg-[var(--surface-2)] shadow-sm'
+                        : 'border-[var(--border)] bg-[var(--surface)] hover:bg-[var(--surface-2)]'
+                    }`}
+                  >
+                    <div className="flex items-center justify-between">
+                      <span className={`text-xs font-bold ${isActive ? 'text-[var(--primary)]' : 'text-[var(--text)]'}`}>
+                        ایستگاه {st.id}: {st.title}
+                      </span>
+                      {st.status === 'active' ? (
+                        <span className="text-[0.62rem] font-bold text-[var(--primary)] bg-[var(--primary)]/15 px-1.5 py-0.5 rounded">
+                          فعال
+                        </span>
+                      ) : (
+                        <span className="text-[0.6rem] text-[var(--text-faint)]">به‌زودی</span>
+                      )}
+                    </div>
+                    <span className="text-[0.72rem] text-[var(--text-muted)]">{st.subtitle}</span>
+                  </button>
+                )
+              })}
+            </nav>
+          </aside>
+        )}
+
+        {/* ── ستون میانی: ران‌وی آرام و ارگونومیک مطالعه ── */}
+        <main className="flex-1 min-w-0 flex flex-col items-center">
+          <div className={`w-full ${readingWidthClass}`}>
+            {selectedStationId === 1 ? (
+              <>
+                {/* تب ۱: متن اصلی درس با تایپوگرافی خوش‌خوان */}
+                {activeTab === 'reader' && activeDoc && (
+                  <article className="prose">
+                    <Markdown content={activeDoc.content} anchorPrefix="v3-" />
+                  </article>
+                )}
+
+                {/* تب ۲: جعبه‌ابزار و پیش‌نیازها */}
+                {activeTab === 'toolbox' && (
+                  <div className="flex flex-col gap-6 py-2">
+                    <div className="rounded-2xl border border-[var(--border)] bg-[var(--surface-2)] p-6">
+                      <h2 className="text-base font-bold text-[var(--text)] mb-2 flex items-center gap-2">
+                        <span>🧰</span>
+                        <span>جعبه‌ابزار مأموریت ۱ (دانلود و ذخیره قبل از قطعی اینترنت)</span>
+                      </h2>
+                      <p className="text-xs text-[var(--text-muted)] leading-relaxed">
+                        این نرم‌افزارها و پکیج‌ها را هم‌اکنون بررسی و در سیستمت آماده داشته باش تا بدون نیاز به اینترنت بتوانی کدهایت را اجرا و تست کنی:
+                      </p>
+                    </div>
+
+                    <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                      {/* Node.js */}
+                      <div className="rounded-2xl border border-[var(--border)] bg-[var(--surface)] p-5 flex flex-col justify-between gap-4">
+                        <div>
+                          <div className="flex items-center justify-between mb-2">
+                            <h3 className="font-bold text-sm text-[var(--text)]">۱. موتور اجرای Node.js LTS</h3>
+                            <span className="rounded bg-emerald-500/15 text-emerald-500 text-[0.65rem] px-2 py-0.5 font-bold">ضروری</span>
+                          </div>
+                          <p className="text-xs text-[var(--text-muted)] mb-3 leading-relaxed">
+                            برای اجرای وب‌سرور جاوااسکریپت روی ویندوز.
+                          </p>
+                          <div className="bg-[var(--surface-2)] border border-[var(--border)] rounded-xl p-2.5 font-mono text-xs text-[var(--primary)] flex items-center justify-between">
+                            <span>node -v</span>
+                            <button
+                              onClick={() => copyToClipboard('node -v', 'cmd-node')}
+                              className="text-xs text-[var(--text-muted)] hover:text-[var(--text)]"
+                            >
+                              {copiedKey === 'cmd-node' ? 'کپی شد!' : 'کپی'}
+                            </button>
+                          </div>
+                        </div>
+                        <a
+                          href="https://nodejs.org/en/download"
+                          target="_blank"
+                          rel="noreferrer"
+                          className="text-center rounded-xl bg-[var(--surface-2)] hover:bg-[var(--primary)] hover:text-white text-[var(--text)] font-bold text-xs py-2.5 transition-all border border-[var(--border)]"
+                        >
+                          دریافت نسخه LTS ویندوز ↗
+                        </a>
+                      </div>
+
+                      {/* Bruno */}
+                      <div className="rounded-2xl border border-[var(--border)] bg-[var(--surface)] p-5 flex flex-col justify-between gap-4">
+                        <div>
+                          <div className="flex items-center justify-between mb-2">
+                            <h3 className="font-bold text-sm text-[var(--text)]">۲. ابزار تست ای‌پی‌آی Bruno</h3>
+                            <span className="rounded bg-cyan-500/15 text-cyan-500 text-[0.65rem] px-2 py-0.5 font-bold">نصب داری ✓</span>
+                          </div>
+                          <p className="text-xs text-[var(--text-muted)] mb-3 leading-relaxed">
+                            کلاینت کامپیوتر برای شبیه‌سازی ارسال درخواست‌های HTTP و دیدن خروجی سرور.
+                          </p>
+                          <div className="bg-[var(--surface-2)] border border-[var(--border)] rounded-xl p-2.5 text-xs text-[var(--text-muted)]">
+                            روی سیستم ویندوزت نصب است و آماده به کار می‌باشد.
+                          </div>
+                        </div>
+                        <a
+                          href="https://www.usebruno.com/downloads"
+                          target="_blank"
+                          rel="noreferrer"
+                          className="text-center rounded-xl bg-[var(--surface-2)] hover:bg-[var(--primary)] hover:text-white text-[var(--text)] font-bold text-xs py-2.5 transition-all border border-[var(--border)]"
+                        >
+                          صفحه دانلود Bruno ↗
+                        </a>
+                      </div>
+
+                      {/* Fastify */}
+                      <div className="rounded-2xl border border-[var(--border)] bg-[var(--surface)] p-5 flex flex-col justify-between gap-4 md:col-span-2">
+                        <div>
+                          <div className="flex items-center justify-between mb-2">
+                            <h3 className="font-bold text-sm text-[var(--text)]">۳. پکیج Fastify (دانلود و کش در npm)</h3>
+                            <span className="rounded bg-amber-500/15 text-amber-500 text-[0.65rem] px-2 py-0.5 font-bold">کش کردن در سیستم</span>
+                          </div>
+                          <p className="text-xs text-[var(--text-muted)] mb-3 leading-relaxed">
+                            دستور زیر را در ترمینال بزن تا کتابخانه Fastify دانلود شده و در سیستم ویندوز کش بماند:
+                          </p>
+                          <div className="bg-[var(--surface-2)] border border-[var(--border)] rounded-xl p-3 font-mono text-xs text-[var(--text)] flex items-center justify-between">
+                            <span>npm install fastify</span>
+                            <button
+                              onClick={() => copyToClipboard('npm install fastify', 'cmd-fastify')}
+                              className="rounded bg-[var(--surface-3)] px-3 py-1 text-xs font-sans text-[var(--text)] hover:bg-[var(--primary)] hover:text-white"
+                            >
+                              {copiedKey === 'cmd-fastify' ? 'کپی شد! ✓' : 'کپی دستور'}
+                            </button>
+                          </div>
+                        </div>
+                      </div>
+                    </div>
+                  </div>
+                )}
+
+                {/* تب ۳: میز تست Bruno */}
+                {activeTab === 'bruno' && (
+                  <div className="flex flex-col gap-5 py-2">
+                    <div className="rounded-2xl border border-[var(--border)] bg-[var(--surface-2)] p-5">
+                      <h2 className="text-sm font-bold text-[var(--text)] mb-1">سناریوهای ۵ گانه تست با Bruno</h2>
+                      <p className="text-xs text-[var(--text-muted)] leading-relaxed">
+                        ابتدا با <code className="font-mono text-[var(--primary)]">node server.js</code> سرور را روشن کن، سپس این درخواست‌ها را در Bruno بساز:
+                      </p>
+                    </div>
+
+                    <div className="flex flex-col gap-4">
+                      {BRUNO_TESTS.map((t) => (
+                        <div key={t.id} className="rounded-2xl border border-[var(--border)] bg-[var(--surface)] p-5 flex flex-col gap-3 shadow-sm">
+                          <div className="flex items-center justify-between border-b border-[var(--border)] pb-2.5">
+                            <div className="flex items-center gap-2">
+                              <span
+                                className={`rounded px-2 py-0.5 text-xs font-black ${
+                                  t.method === 'GET' ? 'bg-emerald-500/15 text-emerald-500' : 'bg-blue-500/15 text-blue-500'
+                                }`}
+                              >
+                                {t.method}
+                              </span>
+                              <span className="font-bold text-xs text-[var(--text)]">{t.title}</span>
+                            </div>
+                            <span className="text-xs font-mono font-bold text-[var(--primary)] bg-[var(--surface-2)] px-2 py-1 rounded border border-[var(--border)]">
+                              Status: {t.status}
+                            </span>
+                          </div>
+
+                          <div className="flex items-center justify-between bg-[var(--surface-2)] p-2.5 rounded-xl border border-[var(--border)] font-mono text-xs text-[var(--text)]">
+                            <span>{t.url}</span>
+                            <button
+                              onClick={() => copyToClipboard(t.url, `url-${t.id}`)}
+                              className="text-xs text-[var(--text-muted)] hover:text-[var(--text)] font-sans"
+                            >
+                              {copiedKey === `url-${t.id}` ? 'کپی شد!' : 'کپی آدرس'}
+                            </button>
+                          </div>
+
+                          {t.body && (
+                            <div className="flex flex-col gap-1">
+                              <div className="flex items-center justify-between text-xs text-[var(--text-muted)]">
+                                <span>بدنه ارسال (Body - JSON):</span>
+                                <button
+                                  onClick={() => copyToClipboard(t.body!, `body-${t.id}`)}
+                                  className="text-[var(--primary)] hover:underline text-[0.72rem]"
+                                >
+                                  {copiedKey === `body-${t.id}` ? 'کپی شد! ✓' : 'کپی بدنه'}
+                                </button>
+                              </div>
+                              <pre className="bg-[var(--surface-2)] p-3 rounded-xl border border-[var(--border)] font-mono text-xs text-[var(--text)] overflow-x-auto text-left" dir="ltr">
+                                <code>{t.body}</code>
+                              </pre>
+                            </div>
+                          )}
+
+                          <div className="flex flex-col gap-1">
+                            <span className="text-xs text-[var(--text-muted)]">پاسخ سرور:</span>
+                            <pre className="bg-[var(--surface-2)] p-3 rounded-xl border border-[var(--border)] font-mono text-xs text-[var(--text-muted)] overflow-x-auto text-left" dir="ltr">
+                              <code>{t.expected}</code>
+                            </pre>
+                          </div>
+                        </div>
+                      ))}
+                    </div>
+                  </div>
+                )}
+
+                {/* تب ۴: کد آماده سرور Fastify */}
+                {activeTab === 'code' && (
+                  <div className="flex flex-col gap-4 py-2">
+                    <div className="flex items-center justify-between bg-[var(--surface-2)] border border-[var(--border)] p-4 rounded-2xl">
+                      <div className="flex flex-col">
+                        <span className="font-bold text-sm text-[var(--text)]">فایل کامل server.js</span>
+                        <span className="text-xs text-[var(--text-muted)]">موقعیت فایل: C:\safir-project\server.js</span>
+                      </div>
+                      <button
+                        type="button"
+                        onClick={() => copyToClipboard(SERVER_CODE, 'code-all')}
+                        className="rounded-xl bg-[var(--primary)] px-4 py-2 text-xs font-bold text-white hover:opacity-90 shadow-sm transition-all"
+                      >
+                        {copiedKey === 'code-all' ? 'کپی شد! ✓' : 'کپی کامل کد'}
+                      </button>
+                    </div>
+
+                    <div className="terminal-window my-2">
+                      <div className="terminal-header">
+                        <div className="terminal-dots">
+                          <span className="terminal-dot terminal-dot-red" />
+                          <span className="terminal-dot terminal-dot-yellow" />
+                          <span className="terminal-dot terminal-dot-green" />
+                        </div>
+                        <span className="font-mono text-xs text-[var(--text-muted)]">server.js</span>
+                      </div>
+                      <pre className="p-4 overflow-x-auto text-xs leading-relaxed font-mono" dir="ltr">
+                        <code>{SERVER_CODE}</code>
+                      </pre>
+                    </div>
+                  </div>
+                )}
+              </>
+            ) : selectedStationId === 0 && activeDoc ? (
+              <article className="prose">
+                <Markdown content={activeDoc.content} anchorPrefix="v3-" />
+              </article>
+            ) : (
+              <div className="rounded-2xl border border-[var(--border)] bg-[var(--surface)] p-12 text-center flex flex-col items-center justify-center gap-4 my-8">
+                <span className="text-4xl">🚧</span>
+                <h3 className="font-bold text-base text-[var(--text)]">
+                  ایستگاه {selectedStationId}: {STATIONS.find((s) => s.id === selectedStationId)?.title}
+                </h3>
+                <p className="text-xs text-[var(--text-muted)] max-w-md leading-relaxed">
+                  محتوای این ایستگاه در گام بعد اضافه خواهد شد. ابتدا مأموریت ۱ را کامل کن و نتیجه را در عمل بسنج!
+                </p>
+                <button
+                  type="button"
+                  onClick={() => setSelectedStationId(1)}
+                  className="rounded-xl bg-[var(--primary)] px-4 py-2 text-xs font-bold text-white hover:opacity-90 transition-all"
+                >
+                  بازگشت به مأموریت ۱
+                </button>
+              </div>
+            )}
+          </div>
+        </main>
+
+        {/* ── ستون چپ: سرفصل‌های شناور TOC ── */}
+        {tocOpen && headings.length > 0 && activeTab === 'reader' && (
+          <aside className="w-64 shrink-0 hidden lg:flex flex-col gap-2 sticky top-16 max-h-[calc(100vh-5rem)] overflow-y-auto">
+            <div className="rounded-2xl border border-[var(--border)] bg-[var(--surface)] p-4 shadow-sm">
+              <div className="flex items-center justify-between mb-3 text-xs font-bold text-[var(--text-muted)]">
+                <span>سرفصل‌های بخش</span>
+                <button
+                  type="button"
+                  onClick={() => setTocOpen(false)}
+                  className="text-[var(--text-faint)] hover:text-[var(--text)]"
+                >
+                  ✕
+                </button>
+              </div>
+              <ul className="flex flex-col gap-1.5 text-xs">
+                {headings.map((h, i) => (
+                  <li key={i}>
+                    <button
+                      type="button"
+                      onClick={() => scrollToHeading(h.id)}
+                      className={`text-right text-[0.75rem] transition-colors line-clamp-1 block w-full hover:text-[var(--primary)] ${
+                        h.level === 3 ? 'pe-3 text-[var(--text-faint)]' : 'font-semibold text-[var(--text-muted)]'
+                      }`}
+                    >
+                      {h.text}
+                    </button>
+                  </li>
+                ))}
+              </ul>
+            </div>
+          </aside>
+        )}
+      </div>
+
+      {/* ── مودال تنظیمات کامل ظاهر، رنگ‌ها و قلم ── */}
+      {settingsOpen && (
+        <div
+          role="dialog"
+          aria-modal="true"
+          className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/60 backdrop-blur-sm"
+        >
+          <div className="relative w-full max-w-md rounded-2xl border border-[var(--border-strong)] bg-[var(--surface)] text-[var(--text)] shadow-2xl overflow-hidden p-6 flex flex-col gap-5">
+            {/* سربرگ مودال */}
+            <div className="flex items-center justify-between border-b border-[var(--border)] pb-3">
+              <div>
+                <h3 className="font-bold text-sm text-[var(--text)]">تنظیمات مطالعه و ظاهر</h3>
+                <p className="text-[0.72rem] text-[var(--text-faint)]">کنترل کامل روی تم‌ها، فونت، اندازه و خوانایی</p>
+              </div>
+              <button
+                type="button"
+                onClick={() => setSettingsOpen(false)}
+                className="rounded-lg p-1 text-[var(--text-muted)] hover:bg-[var(--surface-2)]"
+              >
+                ✕
+              </button>
+            </div>
+
+            {/* بخش ۱: تم و پالت رنگی */}
+            <div className="flex flex-col gap-2">
+              <label className="text-xs font-bold text-[var(--text)]">پالت رنگی و تم:</label>
+              <div className="grid grid-cols-3 gap-2 text-xs font-semibold">
+                {[
+                  { id: 'dark', label: '🌙 تیره مدرن', bg: '#090d16', text: '#f8fafc' },
+                  { id: 'sepia', label: '📜 کاغذی / سپیا', bg: '#fbf0d9', text: '#433422' },
+                  { id: 'light', label: '☀️ سفید مینیمال', bg: '#f8fafc', text: '#0f172a' },
+                  { id: 'nord', label: '❄️ نورد خنک', bg: '#2e3440', text: '#eceff4' },
+                  { id: 'monokai', label: '⚡ مونوکای سایبر', bg: '#1e1f1c', text: '#f8f8f2' },
+                ].map((t) => (
+                  <button
+                    key={t.id}
+                    type="button"
+                    onClick={() => setSettings((s) => ({ ...s, theme: t.id as any }))}
+                    className={`p-2.5 rounded-xl border text-center transition-all ${
+                      settings.theme === t.id
+                        ? 'border-[var(--primary)] ring-2 ring-[var(--primary)]/30 font-bold'
+                        : 'border-[var(--border)] hover:border-[var(--border-strong)]'
+                    }`}
+                    style={{ background: t.bg, color: t.text }}
+                  >
+                    {t.label}
+                  </button>
+                ))}
+              </div>
+            </div>
+
+            {/* بخش ۲: انتخاب فونت */}
+            <div className="flex flex-col gap-2">
+              <label className="text-xs font-bold text-[var(--text)]">قلم (فونت متن):</label>
+              <div className="grid grid-cols-3 gap-2 text-xs font-semibold">
+                {[
+                  { id: 'iransans', label: 'ایران‌سنس' },
+                  { id: 'vazirmatn', label: 'وزیرمتن' },
+                  { id: 'system', label: 'سیستم (پیش‌فرض)' },
+                ].map((f) => (
+                  <button
+                    key={f.id}
+                    type="button"
+                    onClick={() => setSettings((s) => ({ ...s, fontFamily: f.id as any }))}
+                    className={`py-2 px-3 rounded-xl border text-center transition-all ${
+                      settings.fontFamily === f.id
+                        ? 'border-[var(--primary)] bg-[var(--primary)]/15 text-[var(--primary)] font-bold'
+                        : 'border-[var(--border)] bg-[var(--surface-2)] text-[var(--text-muted)] hover:text-[var(--text)]'
+                    }`}
+                  >
+                    {f.label}
+                  </button>
+                ))}
+              </div>
+            </div>
+
+            {/* بخش ۳: اندازه قلم و فاصله خطوط */}
+            <div className="grid grid-cols-2 gap-4">
+              <div className="flex flex-col gap-1.5">
+                <div className="flex items-center justify-between text-xs">
+                  <span className="font-bold text-[var(--text)]">اندازه قلم:</span>
+                  <span className="font-mono text-[var(--primary)] font-bold">{settings.fontSize}px</span>
+                </div>
+                <input
+                  type="range"
+                  min="13"
+                  max="24"
+                  step="1"
+                  value={settings.fontSize}
+                  onChange={(e) => setSettings((s) => ({ ...s, fontSize: Number(e.target.value) }))}
+                  className="w-full accent-[var(--primary)]"
+                />
+              </div>
+
+              <div className="flex flex-col gap-1.5">
+                <div className="flex items-center justify-between text-xs">
+                  <span className="font-bold text-[var(--text)]">فاصله خطوط:</span>
+                  <span className="font-mono text-[var(--primary)] font-bold">{settings.lineHeight}</span>
+                </div>
+                <input
+                  type="range"
+                  min="1.6"
+                  max="2.4"
+                  step="0.05"
+                  value={settings.lineHeight}
+                  onChange={(e) => setSettings((s) => ({ ...s, lineHeight: Number(e.target.value) }))}
+                  className="w-full accent-[var(--primary)]"
+                />
+              </div>
+            </div>
+
+            {/* بخش ۴: عرض ستون مطالعه */}
+            <div className="flex flex-col gap-2">
+              <label className="text-xs font-bold text-[var(--text)]">عرض کادر متن (ارگونومی چشم):</label>
+              <div className="grid grid-cols-4 gap-1.5 text-xs">
+                {[
+                  { id: 'compact', label: 'فشرده' },
+                  { id: 'standard', label: 'استاندارد' },
+                  { id: 'wide', label: 'عریض' },
+                  { id: 'full', label: 'تمام‌صفحه' },
+                ].map((w) => (
+                  <button
+                    key={w.id}
+                    type="button"
+                    onClick={() => setSettings((s) => ({ ...s, readingWidth: w.id as any }))}
+                    className={`py-1.5 rounded-lg border text-center transition-all ${
+                      settings.readingWidth === w.id
+                        ? 'border-[var(--primary)] bg-[var(--primary)]/15 text-[var(--primary)] font-bold'
+                        : 'border-[var(--border)] bg-[var(--surface-2)] text-[var(--text-muted)] hover:text-[var(--text)]'
+                    }`}
+                  >
+                    {w.label}
+                  </button>
+                ))}
+              </div>
+            </div>
+
+            {/* دکمه بستن و تایید */}
+            <div className="flex justify-end pt-2 border-t border-[var(--border)]">
+              <button
+                type="button"
+                onClick={() => setSettingsOpen(false)}
+                className="rounded-xl bg-[var(--primary)] px-5 py-2 text-xs font-bold text-white shadow hover:opacity-90 transition-all"
+              >
+                ذخیره و تایید
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
+    </div>
+  )
+}

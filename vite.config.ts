@@ -39,6 +39,8 @@ export default defineConfig({
         main: fileURLToPath(new URL('index.html', import.meta.url)),
         // نسخه‌ی ۲
         v2: fileURLToPath(new URL('v2.html', import.meta.url)),
+        // نسخه‌ی ۳ — یادگیری چریکی و پروژه سفیر
+        v3: fileURLToPath(new URL('v3.html', import.meta.url)),
       },
     },
   },

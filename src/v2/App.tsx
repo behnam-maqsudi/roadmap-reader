@@ -364,6 +364,13 @@ export default function App() {
             >
               نسخهٔ ۱
             </a>
+
+            <a
+              href="/v3.html"
+              className="rounded-lg bg-cyan-500/20 text-cyan-300 border border-cyan-500/40 px-2.5 py-1 text-xs font-bold hover:bg-cyan-500 hover:text-slate-950 transition-all ms-1"
+            >
+              🚀 نسخهٔ ۳ (سفیر)
+            </a>
           </div>
         </div>
       </header>
