@@ -51,7 +51,7 @@ const STATIONS: Station[] = [
     title: 'کارت شناسایی و نگهبان',
     subtitle: 'احراز هویت و مجوزها',
     product: 'سیستم ورود امن و تفکیک مشتری عادی از مدیر پشتیبانی با JWT',
-    status: 'upcoming',
+    status: 'active',
   },
   {
     id: 4,
@@ -463,6 +463,246 @@ const STATION2_BRUNO_TESTS = [
   },
 ]
 
+const STATION3_SCHEMA = `// prisma/schema.prisma — مدل کاربران با رمز عبور و نقش‌ها
+
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "postgresql"
+  url      = env("DATABASE_URL")
+}
+
+enum Role {
+  CUSTOMER  // مشتری عادی
+  ADMIN     // مدیر سیستم و پشتیبانی
+}
+
+model Customer {
+  id        String   @id @default(uuid())
+  name      String
+  phone     String   @unique
+  password  String                        // رمز عبور هش‌شده با bcrypt
+  role      Role     @default(CUSTOMER)   // نقش کاربر
+  createdAt DateTime @default(now())
+
+  orders    Order[]
+  messages  ChatMessage[]
+}
+
+model Order {
+  id          String   @id @default(uuid())
+  orderNumber String   @unique
+  itemTitle   String
+  status      String   @default("ثبت اولیه")
+  city        String
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
+
+  customerId  String
+  customer    Customer @relation(fields: [customerId], references: [id])
+}
+
+model ChatMessage {
+  id        String   @id @default(uuid())
+  sender    String
+  content   String
+  createdAt DateTime @default(now())
+
+  customerId String?
+  customer   Customer? @relation(fields: [customerId], references: [id])
+}`
+
+const STATION3_SERVER_CODE = `// server.js — نسخه ۳: گام سوم (احراز هویت JWT و تفکیک نقش‌ها با Fastify)
+
+const fastify = require('fastify')({ logger: true });
+const { PrismaClient } = require('@prisma/client');
+const bcrypt = require('bcryptjs');
+
+const prisma = new PrismaClient();
+
+// ثبت پلاگین JWT
+fastify.register(require('@fastify/jwt'), {
+  secret: 'SAFIR_SUPER_SECRET_KEY_2026_OFFLINE_SECURE'
+});
+
+// هوک کمکی نگهبان: اعتبارسنجی لاگین بودن کاربر
+fastify.decorate('authenticate', async function (request, reply) {
+  try {
+    await request.jwtVerify();
+  } catch (err) {
+    reply.status(401);
+    return reply.send({ success: false, error: 'برای دسترسی باید ابتدا لاگین کنی!' });
+  }
+});
+
+// هوک کمکی نگهبان: بررسی دسترسی ادمین
+fastify.decorate('requireAdmin', async function (request, reply) {
+  if (!request.user || request.user.role !== 'ADMIN') {
+    reply.status(403);
+    return reply.send({ success: false, error: 'تنها مدیران (ADMIN) اجازه این عملیات را دارند!' });
+  }
+});
+
+// ۱. ثبت‌نام کاربر جدید
+fastify.post('/api/auth/register', async (request, reply) => {
+  const { name, phone, password, role } = request.body || {};
+  if (!phone || !password || password.length < 6) {
+    reply.status(400);
+    return { success: false, error: 'شماره تماس و رمز عبور (حداقل ۶ کاراکتر) الزامی است.' };
+  }
+
+  const hashedPassword = await bcrypt.hash(password, 10);
+  try {
+    const customer = await prisma.customer.create({
+      data: {
+        name: name || 'کاربر جدید',
+        phone,
+        password: hashedPassword,
+        role: role === 'ADMIN' ? 'ADMIN' : 'CUSTOMER'
+      }
+    });
+
+    reply.status(201);
+    return { success: true, user: { id: customer.id, name: customer.name, role: customer.role } };
+  } catch (err) {
+    if (err.code === 'P2002') {
+      reply.status(409);
+      return { success: false, error: 'شماره تماس تکراری است!' };
+    }
+    reply.status(500);
+    return { success: false, error: 'خطای سرور در ثبت‌نام' };
+  }
+});
+
+// ۲. ورود و دریافت توکن JWT
+fastify.post('/api/auth/login', async (request, reply) => {
+  const { phone, password } = request.body || {};
+  const user = await prisma.customer.findUnique({ where: { phone } });
+  if (!user || !(await bcrypt.compare(password, user.password))) {
+    reply.status(401);
+    return { success: false, error: 'شماره تماس یا رمز عبور اشتباه است!' };
+  }
+
+  const token = fastify.jwt.sign({
+    id: user.id,
+    phone: user.phone,
+    name: user.name,
+    role: user.role
+  });
+
+  return { success: true, token, user: { name: user.name, role: user.role } };
+});
+
+// ۳. روت چت محافظت‌شده با مچ‌بند JWT
+fastify.post('/api/chat', { preHandler: [fastify.authenticate] }, async (request, reply) => {
+  const { message } = request.body || {};
+  const currentUser = request.user; // استخراج‌شده از توکن
+
+  const savedMsg = await prisma.chatMessage.create({
+    data: { sender: 'کاربر', content: message.trim(), customerId: currentUser.id }
+  });
+
+  const botReply = \`درود \${currentUser.name}! هویت شما با مچ‌بند JWT تأیید شد.\`;
+  return { success: true, reply: botReply, messageId: savedMsg.id };
+});
+
+// ۴. تغییر وضعیت سفارش (فقط ADMIN)
+fastify.patch(
+  '/api/orders/:orderNumber/status',
+  { preHandler: [fastify.authenticate, fastify.requireAdmin] },
+  async (request, reply) => {
+    const { orderNumber } = request.params;
+    const { status } = request.body || {};
+
+    const updated = await prisma.order.update({
+      where: { orderNumber: String(orderNumber) },
+      data: { status }
+    });
+
+    return { success: true, message: 'وضعیت سفارش توسط مدیر تغییر یافت.', order: updated };
+  }
+);
+
+fastify.listen({ port: 3000, host: '0.0.0.0' }).then(addr => {
+  console.log(\`🛡️ سرور سفیر همراه با گیت نگهبانی JWT روی \${addr} بیدار شد!\`);
+});`
+
+const STATION3_BRUNO_TESTS = [
+  {
+    id: 1,
+    title: 'تست ۱: ثبت‌نام مدیر در سامانه (201 Created)',
+    method: 'POST',
+    url: 'http://localhost:3000/api/auth/register',
+    status: '201 Created',
+    body: `{
+  "name": "مدیر پشتیبانی سفیر",
+  "phone": "09129990000",
+  "password": "adminSecret123",
+  "role": "ADMIN"
+}`,
+    expected: `{
+  "success": true,
+  "user": {
+    "name": "مدیر پشتیبانی سفیر",
+    "role": "ADMIN"
+  }
+}`,
+  },
+  {
+    id: 2,
+    title: 'تست ۲: ورود و دریافت مچ‌بند JWT (200 OK)',
+    method: 'POST',
+    url: 'http://localhost:3000/api/auth/login',
+    status: '200 OK',
+    body: `{
+  "phone": "09129990000",
+  "password": "adminSecret123"
+}`,
+    expected: `{
+  "success": true,
+  "token": "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpZCI6...",
+  "user": {
+    "role": "ADMIN"
+  }
+}`,
+  },
+  {
+    id: 3,
+    title: 'تست ۳: تست نگهبان — رد درخواست بدون توکن (401 Unauthorized)',
+    method: 'POST',
+    url: 'http://localhost:3000/api/chat',
+    status: '401 Unauthorized',
+    body: `{
+  "message": "سلام من یک غریبه‌ام بدون کارت!"
+}`,
+    expected: `{
+  "statusCode": 401,
+  "error": "Unauthorized",
+  "message": "No Authorization was found in request.headers"
+}`,
+  },
+  {
+    id: 4,
+    title: 'تست ۴: تغییر وضعیت سفارش توسط مدیر با توکن (200 OK)',
+    method: 'PATCH',
+    url: 'http://localhost:3000/api/orders/2001/status',
+    status: '200 OK',
+    body: `{
+  "status": "تحویل راننده پیک داده شد"
+}`,
+    expected: `{
+  "success": true,
+  "message": "وضعیت سفارش توسط مدیر تغییر یافت.",
+  "order": {
+    "orderNumber": "2001",
+    "status": "تحویل راننده پیک داده شد"
+  }
+}`,
+  },
+]
+
 export default function App() {
   const [docs, setDocs] = useState<Doc[]>([])
   const [loading, setLoading] = useState(true)
@@ -533,6 +773,9 @@ export default function App() {
     }
     if (selectedStationId === 2) {
       return docs.find((d) => d.path.includes('فاز-۱۵')) ?? docs.find((d) => d.title.includes('دفترچه')) ?? null
+    }
+    if (selectedStationId === 3) {
+      return docs.find((d) => d.path.includes('فاز-۱۶')) ?? docs.find((d) => d.title.includes('نگهبان')) ?? null
     }
     return docs.find((d) => d.path.includes('فاز-۱۴')) ?? docs.find((d) => d.title.includes('تلفنچی')) ?? null
   }, [docs, selectedStationId])
@@ -611,7 +854,7 @@ export default function App() {
           </div>
 
           {/* وسط: تب‌های روان کارگاهی برای مأموریت‌های فعال */}
-          {(selectedStationId === 1 || selectedStationId === 2) && (
+          {(selectedStationId === 1 || selectedStationId === 2 || selectedStationId === 3) && (
             <div className="flex items-center gap-1 bg-[var(--surface-2)] p-1 rounded-xl border border-[var(--border)] text-xs">
               <button
                 type="button"
@@ -743,7 +986,7 @@ export default function App() {
           <aside className="w-72 shrink-0 flex flex-col gap-3 sticky top-16 max-h-[calc(100vh-5rem)] overflow-y-auto pe-1">
             <div className="flex items-center justify-between text-xs text-[var(--text-faint)] px-1">
               <span className="font-bold">ایستگاه‌های نسخه ۳</span>
-              <span>۱ از ۸</span>
+              <span>{STATIONS.filter((s) => s.status === 'active').length} از {STATIONS.length} آماده مطالعه</span>
             </div>
 
             <button
@@ -1230,6 +1473,215 @@ export default function App() {
                         </div>
                         <pre className="p-4 overflow-x-auto text-xs leading-relaxed font-mono" dir="ltr">
                           <code>{STATION2_SERVER_CODE}</code>
+                        </pre>
+                      </div>
+                    </div>
+                  </div>
+                )}
+              </>
+            ) : selectedStationId === 3 ? (
+              <>
+                {/* تب ۱: متن اصلی درس ایستگاه ۳ با تایپوگرافی خوش‌خوان */}
+                {activeTab === 'reader' && activeDoc && (
+                  <article className="prose">
+                    <Markdown content={activeDoc.content} anchorPrefix="v3-" />
+                  </article>
+                )}
+
+                {/* تب ۲: جعبه‌ابزار و پیش‌نیازهای امنیت و JWT */}
+                {activeTab === 'toolbox' && (
+                  <div className="flex flex-col gap-6 py-2">
+                    <div className="rounded-2xl border border-[var(--border)] bg-[var(--surface-2)] p-6">
+                      <h2 className="text-base font-bold text-[var(--text)] mb-2 flex items-center gap-2">
+                        <span>🧰</span>
+                        <span>جعبه‌ابزار مأموریت ۳ (امنیت، هش پسورد و توکن JWT)</span>
+                      </h2>
+                      <p className="text-xs text-[var(--text-muted)] leading-relaxed">
+                        این دو کتابخانه سبک را برای محاسبات ریاضی رمزنگاری و صدور مچ‌بندهای دیجیتال نصب کن:
+                      </p>
+                    </div>
+
+                    <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                      {/* bcryptjs */}
+                      <div className="rounded-2xl border border-[var(--border)] bg-[var(--surface)] p-5 flex flex-col justify-between gap-4">
+                        <div>
+                          <div className="flex items-center justify-between mb-2">
+                            <h3 className="font-bold text-sm text-[var(--text)]">۱. پکیج bcryptjs (چرخ‌گوشت پسورد)</h3>
+                            <span className="rounded bg-emerald-500/15 text-emerald-500 text-[0.65rem] px-2 py-0.5 font-bold">هش یک‌طرفه</span>
+                          </div>
+                          <p className="text-xs text-[var(--text-muted)] mb-3 leading-relaxed">
+                            تبدیل پسورد خام کاربر به رشته امن ۶۰ کاراکتری غیرقابل بازگشت.
+                          </p>
+                          <div className="bg-[var(--surface-2)] border border-[var(--border)] rounded-xl p-2.5 font-mono text-xs text-[var(--primary)] flex items-center justify-between">
+                            <span>npm install bcryptjs</span>
+                            <button
+                              onClick={() => copyToClipboard('npm install bcryptjs', 'cmd-bcrypt')}
+                              className="text-xs text-[var(--text-muted)] hover:text-[var(--text)] font-sans"
+                            >
+                              {copiedKey === 'cmd-bcrypt' ? 'کپی شد!' : 'کپی'}
+                            </button>
+                          </div>
+                        </div>
+                      </div>
+
+                      {/* @fastify/jwt */}
+                      <div className="rounded-2xl border border-[var(--border)] bg-[var(--surface)] p-5 flex flex-col justify-between gap-4">
+                        <div>
+                          <div className="flex items-center justify-between mb-2">
+                            <h3 className="font-bold text-sm text-[var(--text)]">۲. پکیج @fastify/jwt (مچ‌بند دیجیتال)</h3>
+                            <span className="rounded bg-cyan-500/15 text-cyan-500 text-[0.65rem] px-2 py-0.5 font-bold">صدور و اعتبارسنجی</span>
+                          </div>
+                          <p className="text-xs text-[var(--text-muted)] mb-3 leading-relaxed">
+                            امضای دیجیتال پی‌لود هویت با کلید محرمانه سرور و اعتبارسنجی آنی در هر ریکوئست.
+                          </p>
+                          <div className="bg-[var(--surface-2)] border border-[var(--border)] rounded-xl p-2.5 font-mono text-xs text-[var(--text)] flex items-center justify-between">
+                            <span>npm install @fastify/jwt</span>
+                            <button
+                              onClick={() => copyToClipboard('npm install @fastify/jwt', 'cmd-jwt')}
+                              className="text-xs text-[var(--text-muted)] hover:text-[var(--text)] font-sans"
+                            >
+                              {copiedKey === 'cmd-jwt' ? 'کپی شد!' : 'کپی'}
+                            </button>
+                          </div>
+                        </div>
+                      </div>
+                    </div>
+                  </div>
+                )}
+
+                {/* تب ۳: میز تست Bruno */}
+                {activeTab === 'bruno' && (
+                  <div className="flex flex-col gap-5 py-2">
+                    <div className="rounded-2xl border border-[var(--border)] bg-[var(--surface-2)] p-5">
+                      <h2 className="text-sm font-bold text-[var(--text)] mb-1">سناریوهای تست احراز هویت، خطای ۴۰۱ و دسترسی ADMIN</h2>
+                      <p className="text-xs text-[var(--text-muted)] leading-relaxed">
+                        جریان کامل ثبت‌نام، دریافت توکن، سد نگهبان بدون توکن، و تغییر وضعیت سفارش را تست کن:
+                      </p>
+                    </div>
+
+                    <div className="flex flex-col gap-4">
+                      {STATION3_BRUNO_TESTS.map((t) => (
+                        <div key={t.id} className="rounded-2xl border border-[var(--border)] bg-[var(--surface)] p-5 flex flex-col gap-3 shadow-sm">
+                          <div className="flex items-center justify-between border-b border-[var(--border)] pb-2.5">
+                            <div className="flex items-center gap-2">
+                              <span
+                                className={`rounded px-2 py-0.5 text-xs font-black ${
+                                  t.method === 'GET'
+                                    ? 'bg-emerald-500/15 text-emerald-500'
+                                    : t.method === 'PATCH'
+                                    ? 'bg-purple-500/15 text-purple-500'
+                                    : 'bg-blue-500/15 text-blue-500'
+                                }`}
+                              >
+                                {t.method}
+                              </span>
+                              <span className="font-bold text-xs text-[var(--text)]">{t.title}</span>
+                            </div>
+                            <span className="text-xs font-mono font-bold text-[var(--primary)] bg-[var(--surface-2)] px-2 py-1 rounded border border-[var(--border)]">
+                              Status: {t.status}
+                            </span>
+                          </div>
+
+                          <div className="flex items-center justify-between bg-[var(--surface-2)] p-2.5 rounded-xl border border-[var(--border)] font-mono text-xs text-[var(--text)]">
+                            <span>{t.url}</span>
+                            <button
+                              onClick={() => copyToClipboard(t.url, `st3-url-${t.id}`)}
+                              className="text-xs text-[var(--text-muted)] hover:text-[var(--text)] font-sans"
+                            >
+                              {copiedKey === `st3-url-${t.id}` ? 'کپی شد!' : 'کپی آدرس'}
+                            </button>
+                          </div>
+
+                          {t.body && (
+                            <div className="flex flex-col gap-1">
+                              <div className="flex items-center justify-between text-xs text-[var(--text-muted)]">
+                                <span>بدنه ارسال (Body - JSON):</span>
+                                <button
+                                  onClick={() => copyToClipboard(t.body!, `st3-body-${t.id}`)}
+                                  className="text-[var(--primary)] hover:underline text-[0.72rem]"
+                                >
+                                  {copiedKey === `st3-body-${t.id}` ? 'کپی شد! ✓' : 'کپی بدنه'}
+                                </button>
+                              </div>
+                              <pre className="bg-[var(--surface-2)] p-3 rounded-xl border border-[var(--border)] font-mono text-xs text-[var(--text)] overflow-x-auto text-left" dir="ltr">
+                                <code>{t.body}</code>
+                              </pre>
+                            </div>
+                          )}
+
+                          <div className="flex flex-col gap-1">
+                            <span className="text-xs text-[var(--text-muted)]">پاسخ سرور:</span>
+                            <pre className="bg-[var(--surface-2)] p-3 rounded-xl border border-[var(--border)] font-mono text-xs text-[var(--text-muted)] overflow-x-auto text-left" dir="ltr">
+                              <code>{t.expected}</code>
+                            </pre>
+                          </div>
+                        </div>
+                      ))}
+                    </div>
+                  </div>
+                )}
+
+                {/* تب ۴: کدهای سرور و اسکیما */}
+                {activeTab === 'code' && (
+                  <div className="flex flex-col gap-6 py-2">
+                    {/* اسکیما */}
+                    <div className="flex flex-col gap-2">
+                      <div className="flex items-center justify-between bg-[var(--surface-2)] border border-[var(--border)] p-3 rounded-2xl">
+                        <div className="flex flex-col">
+                          <span className="font-bold text-sm text-[var(--text)]">۱. اسکیما با ستون‌های password و role</span>
+                          <span className="text-xs text-[var(--text-muted)]">فایل prisma/schema.prisma</span>
+                        </div>
+                        <button
+                          type="button"
+                          onClick={() => copyToClipboard(STATION3_SCHEMA, 'code-st3-schema')}
+                          className="rounded-xl bg-[var(--primary)] px-3 py-1.5 text-xs font-bold text-white hover:opacity-90 shadow-sm transition-all"
+                        >
+                          {copiedKey === 'code-st3-schema' ? 'کپی شد! ✓' : 'کپی اسکیما'}
+                        </button>
+                      </div>
+
+                      <div className="terminal-window my-1">
+                        <div className="terminal-header">
+                          <div className="terminal-dots">
+                            <span className="terminal-dot terminal-dot-red" />
+                            <span className="terminal-dot terminal-dot-yellow" />
+                            <span className="terminal-dot terminal-dot-green" />
+                          </div>
+                          <span className="font-mono text-xs text-[var(--text-muted)]">schema.prisma</span>
+                        </div>
+                        <pre className="p-4 overflow-x-auto text-xs leading-relaxed font-mono" dir="ltr">
+                          <code>{STATION3_SCHEMA}</code>
+                        </pre>
+                      </div>
+                    </div>
+
+                    {/* کدهای سرور */}
+                    <div className="flex flex-col gap-2">
+                      <div className="flex items-center justify-between bg-[var(--surface-2)] border border-[var(--border)] p-3 rounded-2xl">
+                        <div className="flex flex-col">
+                          <span className="font-bold text-sm text-[var(--text)]">۲. سرور Fastify با نگه‌بان JWT و کنترل نقش‌ها</span>
+                          <span className="text-xs text-[var(--text-muted)]">فایل server.js</span>
+                        </div>
+                        <button
+                          type="button"
+                          onClick={() => copyToClipboard(STATION3_SERVER_CODE, 'code-st3-server')}
+                          className="rounded-xl bg-[var(--primary)] px-3 py-1.5 text-xs font-bold text-white hover:opacity-90 shadow-sm transition-all"
+                        >
+                          {copiedKey === 'code-st3-server' ? 'کپی شد! ✓' : 'کپی کد سرور'}
+                        </button>
+                      </div>
+
+                      <div className="terminal-window my-1">
+                        <div className="terminal-header">
+                          <div className="terminal-dots">
+                            <span className="terminal-dot terminal-dot-red" />
+                            <span className="terminal-dot terminal-dot-yellow" />
+                            <span className="terminal-dot terminal-dot-green" />
+                          </div>
+                          <span className="font-mono text-xs text-[var(--text-muted)]">server.js (JWT Guard)</span>
+                        </div>
+                        <pre className="p-4 overflow-x-auto text-xs leading-relaxed font-mono" dir="ltr">
+                          <code>{STATION3_SERVER_CODE}</code>
                         </pre>
                       </div>
                     </div>
