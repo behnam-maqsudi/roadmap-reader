@@ -65,7 +65,7 @@ const STATIONS: Station[] = [
     title: 'مغز متفکر',
     subtitle: 'اتصال به مدل‌های زبانی',
     product: 'پاسخگویی هوشمند به پیام‌ها در قالب JSON ساختاریافته',
-    status: 'upcoming',
+    status: 'active',
   },
   {
     id: 6,
@@ -976,6 +976,222 @@ const STATION4_BRUNO_TESTS = [
   },
 ]
 
+const STATION5_SERVER_CODE = `// server.js — نسخه ۳: گام پنجم (مغز متفکر — اتصال به LLM با خروجی معتبر JSON)
+
+const fastify = require('fastify')({ logger: true });
+const { PrismaClient } = require('@prisma/client');
+const { OpenAI } = require('openai');
+const { z } = require('zod');
+
+const prisma = new PrismaClient();
+
+// ۱. کلاینت هوش مصنوعی (سازگار با Ollama لوکال روی پورت 11434 یا OpenAI ابری)
+const openai = new OpenAI({
+  baseURL: process.env.AI_BASE_URL || 'http://localhost:11434/v1',
+  apiKey: process.env.AI_API_KEY || 'ollama-local-offline'
+});
+
+const AI_MODEL = process.env.AI_MODEL_NAME || 'qwen2.5:0.5b';
+
+// ۲. فرم سخت‌گیرانه Zod برای اعتبارسنجی خروجی مدل زبانی
+const AiAnalysisSchema = z.object({
+  intent: z.enum(['TRACK_ORDER', 'COMPLAINT', 'GENERAL_QUESTION', 'CANCEL_ORDER']),
+  orderNumber: z.string().nullable(),
+  sentiment: z.enum(['HAPPY', 'NEUTRAL', 'ANGRY']),
+  urgency: z.enum(['LOW', 'MEDIUM', 'HIGH']),
+  suggestedReply: z.string().min(5)
+});
+
+// نبض سلامت و بررسی ارتباط با موتور هوش مصنوعی
+fastify.get('/health', async (request, reply) => {
+  let aiStatus = 'disconnected';
+  try {
+    const models = await openai.models.list();
+    aiStatus = \`connected (مدل فعال: \${AI_MODEL})\`;
+  } catch (err) {
+    aiStatus = \`offline (\${err.message})\`;
+  }
+
+  return {
+    status: 'healthy',
+    service: 'Safir Core + AI Brain',
+    aiEngine: aiStatus,
+    timestamp: new Date().toISOString()
+  };
+});
+
+// ۳. روت تحلیل هوشمند پیام‌های ورودی مشتری با خروجی تضمین‌شده JSON
+fastify.post('/api/ai/analyze-message', async (request, reply) => {
+  const { message } = request.body || {};
+
+  if (!message || message.trim() === '') {
+    reply.status(400);
+    return { success: false, error: 'متن پیام مشتری الزامی است!' };
+  }
+
+  const startTime = Date.now();
+
+  try {
+    // صدا زدن مدل با response_format روی json_object
+    const response = await openai.chat.completions.create({
+      model: AI_MODEL,
+      response_format: { type: 'json_object' },
+      messages: [
+        {
+          role: 'system',
+          content: \`تو هوش مصنوعی تحلیل‌گر سامانه تدارکات و لجستیک «سفیر» هستی.
+وظیفه تو این است که پیام خریدار را خوانده و دقیقاً یک آبجکت معتبر JSON با این فیلدها بسازی:
+- "intent": یکی از مقادیر ["TRACK_ORDER", "COMPLAINT", "GENERAL_QUESTION", "CANCEL_ORDER"]
+- "orderNumber": رشته شماره سفارش اگر در پیام ذکر شده بود، در غیر این صورت مقدار null
+- "sentiment": یکی از مقادیر ["HAPPY", "NEUTRAL", "ANGRY"]
+- "urgency": یکی از مقادیر ["LOW", "MEDIUM", "HIGH"]
+- "suggestedReply": یک پاسخ کوتاه، بسیار محترمانه و صمیمی به زبان فارسی برای مشتری
+
+مهم: هیچ متنی جز ساختار JSON خروجی نده!\`
+        },
+        {
+          role: 'user',
+          content: \`پیام مشتری: "\${message}"\`
+        }
+      ],
+      temperature: 0.1 // دمای پایین برای پاسخ قطعی و جلوگیری از خیال‌بافی
+    });
+
+    const rawContent = response.choices[0].message.content;
+    const parsedJson = JSON.parse(rawContent);
+
+    // اعتبارسنجی قطعی با Zod
+    const validatedData = AiAnalysisSchema.parse(parsedJson);
+    const elapsed = Date.now() - startTime;
+
+    // ذخیره سابقه چت و نیت در دیتابیس
+    await prisma.chatMessage.create({
+      data: {
+        sender: 'کاربر',
+        content: \`[تحلیل AI: نیت=\${validatedData.intent} | حس=\${validatedData.sentiment}] \${message}\`
+      }
+    });
+
+    return {
+      success: true,
+      analysisTimeMs: elapsed,
+      ai: validatedData
+    };
+  } catch (err) {
+    request.log.error(err);
+    reply.status(500);
+    return {
+      success: false,
+      error: 'خطا در تحلیل پیام توسط مغز متفکر',
+      details: err.message
+    };
+  }
+});
+
+fastify.listen({ port: 3000, host: '0.0.0.0' }).then(addr => {
+  console.log(\`🧠 مغز متفکر سفیر با اتصال به مدل زبانی روی \${addr} آغاز به کار کرد!\`);
+});`
+
+const STATION5_BRUNO_TESTS = [
+  {
+    id: 1,
+    title: 'تست ۱: نبض سلامت سرور و اتصال به مدل هوش مصنوعی (Local Ollama / OpenAI)',
+    method: 'GET',
+    url: 'http://localhost:3000/health',
+    status: '200 OK',
+    body: null,
+    expected: `{
+  "status": "healthy",
+  "service": "Safir Core + AI Brain",
+  "aiEngine": "connected (مدل فعال: qwen2.5:0.5b)",
+  "timestamp": "2026-10-15T01:35:00.000Z"
+}`,
+  },
+  {
+    id: 2,
+    title: 'تست ۲: استخراج شماره سفارش و نیت پیگیری (Intent: TRACK_ORDER)',
+    method: 'POST',
+    url: 'http://localhost:3000/api/ai/analyze-message',
+    status: '200 OK',
+    body: `{
+  "message": "سلام خسته نباشید، وضعیت سفارش ۲۰۰۱ من چی شد؟ قرار بود امروز برسه مشهد."
+}`,
+    expected: `{
+  "success": true,
+  "analysisTimeMs": 284,
+  "ai": {
+    "intent": "TRACK_ORDER",
+    "orderNumber": "2001",
+    "sentiment": "NEUTRAL",
+    "urgency": "MEDIUM",
+    "suggestedReply": "درود! سفارش شماره ۲۰۰۱ شما در حال بررسی است و به زودی وضعیت دقیق ارسال به مشهد را به شما اعلام می‌کنیم."
+  }
+}`,
+  },
+  {
+    id: 3,
+    title: 'تست ۳: تشخیص مشتری شاکی و لحن عصبانی (Sentiment: ANGRY & Priority: HIGH)',
+    method: 'POST',
+    url: 'http://localhost:3000/api/ai/analyze-message',
+    status: '200 OK',
+    body: `{
+  "message": "چرا تلفنتون رو جواب نمی‌دید؟ سه روزه پول دادم ولی هیچ بسته‌ای نیومده! خیلی بی‌مسئولیت هستید!"
+}`,
+    expected: `{
+  "success": true,
+  "analysisTimeMs": 310,
+  "ai": {
+    "intent": "COMPLAINT",
+    "orderNumber": null,
+    "sentiment": "ANGRY",
+    "urgency": "HIGH",
+    "suggestedReply": "کاربر گرامی، از تاخیر پیش‌آمده عمیقاً پوزش می‌خواهیم. تیم پشتیبانی سفیر اولویت بالایی به پیگیری پیام شما داده و در اسرع وقت مشکل را حل خواهد کرد."
+  }
+}`,
+  },
+  {
+    id: 4,
+    title: 'تست ۴: سوال عمومی درباره ساعات کاری (Intent: GENERAL_QUESTION)',
+    method: 'POST',
+    url: 'http://localhost:3000/api/ai/analyze-message',
+    status: '200 OK',
+    body: `{
+  "message": "شعبه مرکزی سفیر در روزهای پنجشنبه تا چه ساعتی باز است؟"
+}`,
+    expected: `{
+  "success": true,
+  "analysisTimeMs": 240,
+  "ai": {
+    "intent": "GENERAL_QUESTION",
+    "orderNumber": null,
+    "sentiment": "NEUTRAL",
+    "urgency": "LOW",
+    "suggestedReply": "ساعت کاری شعبه مرکزی سفیر در روزهای پنجشنبه از ساعت ۸ صبح تا ۱۴ بعدازظهر می‌باشد."
+  }
+}`,
+  },
+  {
+    id: 5,
+    title: 'تست ۵: اعتبارسنجی داده‌های تایپ‌سیف توسط بازرس Zod (خروجی ۱۰۰٪ معتبر)',
+    method: 'POST',
+    url: 'http://localhost:3000/api/ai/analyze-message',
+    status: '200 OK',
+    body: `{
+  "message": "می‌خوام سفارشم رو کنسل کنم، پشیمون شدم."
+}`,
+    expected: `{
+  "success": true,
+  "ai": {
+    "intent": "CANCEL_ORDER",
+    "orderNumber": null,
+    "sentiment": "NEUTRAL",
+    "urgency": "HIGH",
+    "suggestedReply": "درخواست انصراف شما دریافت شد. همکاران پشتیبانی جهت عودت وجه با شما تماس خواهند گرفت."
+  }
+}`,
+  },
+]
+
 
 export default function App() {
   const [docs, setDocs] = useState<Doc[]>([])
@@ -1054,6 +1270,9 @@ export default function App() {
     if (selectedStationId === 4) {
       return docs.find((d) => d.path.includes('فاز-۱۷')) ?? docs.find((d) => d.title.includes('انبار')) ?? null
     }
+    if (selectedStationId === 5) {
+      return docs.find((d) => d.path.includes('فاز-۱۸')) ?? docs.find((d) => d.title.includes('متفکر')) ?? null
+    }
     return docs.find((d) => d.path.includes('فاز-۱۴')) ?? docs.find((d) => d.title.includes('تلفنچی')) ?? null
   }, [docs, selectedStationId])
 
@@ -1131,7 +1350,7 @@ export default function App() {
           </div>
 
           {/* وسط: تب‌های روان کارگاهی برای مأموریت‌های فعال */}
-          {(selectedStationId === 1 || selectedStationId === 2 || selectedStationId === 3 || selectedStationId === 4) && (
+          {(selectedStationId >= 1 && selectedStationId <= 5) && (
             <div className="flex items-center gap-1 bg-[var(--surface-2)] p-1 rounded-xl border border-[var(--border)] text-xs">
               <button
                 type="button"
@@ -2200,6 +2419,207 @@ export default function App() {
                           <code>{STATION4_WORKER_CODE}</code>
                         </pre>
                       </div>
+                    </div>
+                  </div>
+                )}
+              </>
+            ) : selectedStationId === 5 ? (
+              <>
+                {/* تب ۱: متن اصلی درس ایستگاه ۵ با تایپوگرافی خوش‌خوان */}
+                {activeTab === 'reader' && activeDoc && (
+                  <article className="prose">
+                    <Markdown content={activeDoc.content} anchorPrefix="v3-" />
+                  </article>
+                )}
+
+                {/* تب ۲: جعبه‌ابزار و پیش‌نیازهای هوش مصنوعی و Zod */}
+                {activeTab === 'toolbox' && (
+                  <div className="flex flex-col gap-6 py-2">
+                    <div className="rounded-2xl border border-[var(--border)] bg-[var(--surface-2)] p-6">
+                      <h2 className="text-base font-bold text-[var(--text)] mb-2 flex items-center gap-2">
+                        <span>🧰</span>
+                        <span>جعبه‌ابزار مأموریت ۵ (هوش مصنوعی آفلاین Ollama، SDK و بازرس Zod)</span>
+                      </h2>
+                      <p className="text-xs text-[var(--text-muted)] leading-relaxed">
+                        این سه ابزار را برای اجرای مدل‌های زبانی روی ویندوز و قفل کردن خروجی‌ها در قالب معتبر JSON آماده کن:
+                      </p>
+                    </div>
+
+                    <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                      {/* Ollama */}
+                      <div className="rounded-2xl border border-[var(--border)] bg-[var(--surface)] p-5 flex flex-col justify-between gap-4">
+                        <div>
+                          <div className="flex items-center justify-between mb-2">
+                            <h3 className="font-bold text-sm text-[var(--text)]">۱. موتور اجرای مدل زبانی Ollama</h3>
+                            <span className="rounded bg-emerald-500/15 text-emerald-500 text-[0.65rem] px-2 py-0.5 font-bold">۱۰۰٪ آفلاین</span>
+                          </div>
+                          <p className="text-xs text-[var(--text-muted)] mb-3 leading-relaxed">
+                            اجرای مدل‌های سبک Llama و Qwen روی ویندوز بدون اینترنت روی پورت ۱۱۴۳۴.
+                          </p>
+                          <div className="bg-[var(--surface-2)] border border-[var(--border)] rounded-xl p-2.5 font-mono text-xs text-[var(--primary)] flex items-center justify-between">
+                            <span>ollama run qwen2.5:0.5b</span>
+                            <button
+                              onClick={() => copyToClipboard('ollama run qwen2.5:0.5b', 'cmd-ollama')}
+                              className="text-xs text-[var(--text-muted)] hover:text-[var(--text)] font-sans"
+                            >
+                              {copiedKey === 'cmd-ollama' ? 'کپی شد!' : 'کپی'}
+                            </button>
+                          </div>
+                        </div>
+                        <a
+                          href="https://ollama.com/download"
+                          target="_blank"
+                          rel="noreferrer"
+                          className="text-center rounded-xl bg-[var(--surface-2)] hover:bg-[var(--primary)] hover:text-white text-[var(--text)] font-bold text-xs py-2.5 transition-all border border-[var(--border)]"
+                        >
+                          دانلود نرم‌افزار رایگان Ollama ویندوز ↗
+                        </a>
+                      </div>
+
+                      {/* openai package */}
+                      <div className="rounded-2xl border border-[var(--border)] bg-[var(--surface)] p-5 flex flex-col justify-between gap-4">
+                        <div>
+                          <div className="flex items-center justify-between mb-2">
+                            <h3 className="font-bold text-sm text-[var(--text)]">۲. پکیج رسمی ارتباطی OpenAI</h3>
+                            <span className="rounded bg-cyan-500/15 text-cyan-500 text-[0.65rem] px-2 py-0.5 font-bold">استاندارد جهانی</span>
+                          </div>
+                          <p className="text-xs text-[var(--text-muted)] mb-3 leading-relaxed">
+                            کلاینت یکپارچه برای اتصال هم به Ollama لوکال و هم سرویس‌های ابری.
+                          </p>
+                          <div className="bg-[var(--surface-2)] border border-[var(--border)] rounded-xl p-2.5 font-mono text-xs text-[var(--text)] flex items-center justify-between">
+                            <span>npm install openai</span>
+                            <button
+                              onClick={() => copyToClipboard('npm install openai', 'cmd-openai')}
+                              className="text-xs text-[var(--text-muted)] hover:text-[var(--text)] font-sans"
+                            >
+                              {copiedKey === 'cmd-openai' ? 'کپی شد!' : 'کپی'}
+                            </button>
+                          </div>
+                        </div>
+                      </div>
+
+                      {/* Zod */}
+                      <div className="rounded-2xl border border-[var(--border)] bg-[var(--surface)] p-5 flex flex-col justify-between gap-4 md:col-span-2">
+                        <div>
+                          <div className="flex items-center justify-between mb-2">
+                            <h3 className="font-bold text-sm text-[var(--text)]">۳. پکیج اعتبارسنجی اسکیما Zod</h3>
+                            <span className="rounded bg-amber-500/15 text-amber-500 text-[0.65rem] px-2 py-0.5 font-bold">تایپ‌سیف و بازرسی</span>
+                          </div>
+                          <p className="text-xs text-[var(--text-muted)] mb-3 leading-relaxed">
+                            تضمین این‌که هوش مصنوعی هرگز دیتای ناقص، کلید اشتباه یا فرمت غیرمنتظره به برنامه ندهد.
+                          </p>
+                          <div className="bg-[var(--surface-2)] border border-[var(--border)] rounded-xl p-3 font-mono text-xs text-[var(--text)] flex items-center justify-between">
+                            <span>npm install zod</span>
+                            <button
+                              onClick={() => copyToClipboard('npm install zod', 'cmd-zod')}
+                              className="rounded bg-[var(--surface-3)] px-3 py-1 text-xs font-sans text-[var(--text)] hover:bg-[var(--primary)] hover:text-white"
+                            >
+                              {copiedKey === 'cmd-zod' ? 'کپی شد! ✓' : 'کپی دستور'}
+                            </button>
+                          </div>
+                        </div>
+                      </div>
+                    </div>
+                  </div>
+                )}
+
+                {/* تب ۳: میز تست Bruno */}
+                {activeTab === 'bruno' && (
+                  <div className="flex flex-col gap-5 py-2">
+                    <div className="rounded-2xl border border-[var(--border)] bg-[var(--surface-2)] p-5">
+                      <h2 className="text-sm font-bold text-[var(--text)] mb-1">سناریوهای تست تحلیل پیام، استخراج نیت و اعتبارسنجی Zod</h2>
+                      <p className="text-xs text-[var(--text-muted)] leading-relaxed">
+                        این ۵ سناریو را برای مشاهده تحلیل هوشمند، تشخیص لحن خشم و خروجی ۱۰۰٪ ساختاریافته آزمایش کن:
+                      </p>
+                    </div>
+
+                    <div className="flex flex-col gap-4">
+                      {STATION5_BRUNO_TESTS.map((t) => (
+                        <div key={t.id} className="rounded-2xl border border-[var(--border)] bg-[var(--surface)] p-5 flex flex-col gap-3 shadow-sm">
+                          <div className="flex items-center justify-between border-b border-[var(--border)] pb-2.5">
+                            <div className="flex items-center gap-2">
+                              <span
+                                className={`rounded px-2 py-0.5 text-xs font-black ${
+                                  t.method === 'GET' ? 'bg-emerald-500/15 text-emerald-500' : 'bg-blue-500/15 text-blue-500'
+                                }`}
+                              >
+                                {t.method}
+                              </span>
+                              <span className="font-bold text-xs text-[var(--text)]">{t.title}</span>
+                            </div>
+                            <span className="text-xs font-mono font-bold text-[var(--primary)] bg-[var(--surface-2)] px-2 py-1 rounded border border-[var(--border)]">
+                              Status: {t.status}
+                            </span>
+                          </div>
+
+                          <div className="flex items-center justify-between bg-[var(--surface-2)] p-2.5 rounded-xl border border-[var(--border)] font-mono text-xs text-[var(--text)]">
+                            <span>{t.url}</span>
+                            <button
+                              onClick={() => copyToClipboard(t.url, `st5-url-${t.id}`)}
+                              className="text-xs text-[var(--text-muted)] hover:text-[var(--text)] font-sans"
+                            >
+                              {copiedKey === `st5-url-${t.id}` ? 'کپی شد!' : 'کپی آدرس'}
+                            </button>
+                          </div>
+
+                          {t.body && (
+                            <div className="flex flex-col gap-1">
+                              <div className="flex items-center justify-between text-xs text-[var(--text-muted)]">
+                                <span>بدنه ارسال (Body - JSON):</span>
+                                <button
+                                  onClick={() => copyToClipboard(t.body!, `st5-body-${t.id}`)}
+                                  className="text-[var(--primary)] hover:underline text-[0.72rem]"
+                                >
+                                  {copiedKey === `st5-body-${t.id}` ? 'کپی شد! ✓' : 'کپی بدنه'}
+                                </button>
+                              </div>
+                              <pre className="bg-[var(--surface-2)] p-3 rounded-xl border border-[var(--border)] font-mono text-xs text-[var(--text)] overflow-x-auto text-left" dir="ltr">
+                                <code>{t.body}</code>
+                              </pre>
+                            </div>
+                          )}
+
+                          <div className="flex flex-col gap-1">
+                            <span className="text-xs text-[var(--text-muted)]">پاسخ سرور و هوش مصنوعی:</span>
+                            <pre className="bg-[var(--surface-2)] p-3 rounded-xl border border-[var(--border)] font-mono text-xs text-[var(--text-muted)] overflow-x-auto text-left" dir="ltr">
+                              <code>{t.expected}</code>
+                            </pre>
+                          </div>
+                        </div>
+                      ))}
+                    </div>
+                  </div>
+                )}
+
+                {/* تب ۴: کدهای سرور متصل به هوش مصنوعی */}
+                {activeTab === 'code' && (
+                  <div className="flex flex-col gap-6 py-2">
+                    <div className="flex items-center justify-between bg-[var(--surface-2)] border border-[var(--border)] p-3 rounded-2xl">
+                      <div className="flex flex-col">
+                        <span className="font-bold text-sm text-[var(--text)]">کدهای کامل سرور با اتصال به مدل زبانی و اسکیما Zod</span>
+                        <span className="text-xs text-[var(--text-muted)]">فایل server.js (AI Engine Edition)</span>
+                      </div>
+                      <button
+                        type="button"
+                        onClick={() => copyToClipboard(STATION5_SERVER_CODE, 'code-st5-server')}
+                        className="rounded-xl bg-[var(--primary)] px-3 py-1.5 text-xs font-bold text-white hover:opacity-90 shadow-sm transition-all"
+                      >
+                        {copiedKey === 'code-st5-server' ? 'کپی شد! ✓' : 'کپی کد سرور'}
+                      </button>
+                    </div>
+
+                    <div className="terminal-window my-1">
+                      <div className="terminal-header">
+                        <div className="terminal-dots">
+                          <span className="terminal-dot terminal-dot-red" />
+                          <span className="terminal-dot terminal-dot-yellow" />
+                          <span className="terminal-dot terminal-dot-green" />
+                        </div>
+                        <span className="font-mono text-xs text-[var(--text-muted)]">server.js (AI Brain)</span>
+                      </div>
+                      <pre className="p-4 overflow-x-auto text-xs leading-relaxed font-mono" dir="ltr">
+                        <code>{STATION5_SERVER_CODE}</code>
+                      </pre>
                     </div>
                   </div>
                 )}
