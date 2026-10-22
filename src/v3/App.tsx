@@ -256,7 +256,6 @@ generator client {
 
 datasource db {
   provider = "postgresql"
-  url      = env("DATABASE_URL")
 }
 
 model Customer {
@@ -476,7 +475,6 @@ generator client {
 
 datasource db {
   provider = "postgresql"
-  url      = env("DATABASE_URL")
 }
 
 enum Role {
@@ -2879,6 +2877,60 @@ export default defineConfig({
   datasource: { url: process.env.DATABASE_URL! },
 });`}</code>
                             </pre>
+                          </div>
+                        </div>
+                      </div>
+
+                      {/* جدول راهنمای دستورات ترمینال */}
+                      <div className="rounded-2xl border border-[var(--border)] bg-[var(--surface)] p-5 flex flex-col gap-4 md:col-span-2">
+                        <div className="flex items-center justify-between">
+                          <h3 className="font-bold text-sm text-[var(--text)] flex items-center gap-2">
+                            <span>⚡</span>
+                            <span>راهنمای دستورات ترمینال (کِی و چرا می‌زنیم؟)</span>
+                          </h3>
+                          <span className="rounded bg-[var(--primary)]/15 text-[var(--primary)] text-[0.65rem] px-2 py-0.5 font-bold">
+                            چریکی و گام‌به‌گام
+                          </span>
+                        </div>
+                        <div className="flex flex-col gap-3">
+                          <div className="p-3 bg-[var(--surface-2)] rounded-xl border border-[var(--border)] flex flex-col gap-1.5">
+                            <div className="flex items-center justify-between">
+                              <span className="font-mono text-xs font-bold text-[var(--primary)]">npx prisma migrate dev --name init_safir_schema</span>
+                              <span className="text-[0.68rem] text-[var(--text-muted)] bg-[var(--surface)] px-2 py-0.5 rounded">پس از ویرایش schema.prisma</span>
+                            </div>
+                            <p className="text-xs text-[var(--text-muted)] leading-relaxed">
+                              <strong className="text-[var(--text)]">چرا می‌زنیم؟</strong> تبدیل نقشه متنی اسکیما به زبان SQL و ساخت واقعی و فیزیکی جداول در PostgreSQL.
+                            </p>
+                          </div>
+
+                          <div className="p-3 bg-[var(--surface-2)] rounded-xl border border-[var(--border)] flex flex-col gap-1.5">
+                            <div className="flex items-center justify-between">
+                              <span className="font-mono text-xs font-bold text-[var(--primary)]">npx prisma generate</span>
+                              <span className="text-[0.68rem] text-[var(--text-muted)] bg-[var(--surface)] px-2 py-0.5 rounded">بلافاصله بعد از هر مایگریشن</span>
+                            </div>
+                            <p className="text-xs text-[var(--text-muted)] leading-relaxed">
+                              <strong className="text-[var(--text)]">چرا می‌زنیم؟</strong> بازسازی فایل‌های جاوااسکریپت و تایپ‌های کلاینت در <code className="font-mono">node_modules/@prisma/client</code> تا متدهایی مثل <code className="font-mono">prisma.customer.findMany()</code> در ادیتور فعال شوند.
+                            </p>
+                          </div>
+
+                          <div className="p-3 bg-[var(--surface-2)] rounded-xl border border-[var(--border)] flex flex-col gap-1.5">
+                            <div className="flex items-center justify-between">
+                              <span className="font-mono text-xs font-bold text-[var(--primary)]">npx prisma studio</span>
+                              <span className="text-[0.68rem] text-[var(--text-muted)] bg-[var(--surface)] px-2 py-0.5 rounded">مشاهده چشمی داده‌ها</span>
+                            </div>
+                            <p className="text-xs text-[var(--text-muted)] leading-relaxed">
+                              <strong className="text-[var(--text)]">چرا می‌زنیم؟</strong> باز کردن یک پنل وب محلی مدرن روی پورت ۵۵۵۵ شبیه اکسل برای بازبینی و دستکاری داده‌های دیتابیس بدون نیاز به نصب هیچ نرم‌افزار اضافی.
+                            </p>
+                          </div>
+
+                          <div className="p-3 bg-[var(--surface-2)] rounded-xl border border-[var(--border)] flex flex-col gap-1.5">
+                            <div className="flex items-center justify-between">
+                              <span className="font-mono text-xs font-bold text-[var(--primary)]">npm run dev (یا node --watch server.js)</span>
+                              <span className="text-[0.68rem] text-[var(--text-muted)] bg-[var(--surface)] px-2 py-0.5 rounded">روشن کردن سرور</span>
+                            </div>
+                            <p className="text-xs text-[var(--text-muted)] leading-relaxed">
+                              <strong className="text-[var(--text)]">چرا می‌زنیم؟</strong> اجرای زنده سرور Fastify با شنود تغییرات فایل؛ با هر بار ویرایش کد و ذخیره فایل، سرور بدون نیاز به توقف دستی در کسری از ثانیه ری‌استارت می‌شود.
+                            </p>
                           </div>
                         </div>
                       </div>
