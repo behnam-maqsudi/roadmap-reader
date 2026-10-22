@@ -15,88 +15,88 @@
  */
 
 .hljs {
-  color: var(--code-text);
+  color: var(--code-text, #f8fafc);
   background: transparent;
 }
 
-/* کامنت — خاکستری، کم‌جاذبه */
+/* کامنت — خاکستری روشن، خوانا و مایل */
 .hljs-comment,
 .hljs-quote {
-  color: var(--text-faint);
+  color: #94a3b8;
   font-style: italic;
 }
 
-/* کلیدواژه — رنگِ تأکید */
+/* کلیدواژه — صورتی گرم با کنتراست عالی (const, let, function, return, async, ...) */
 .hljs-keyword,
 .hljs-selector-tag,
 .hljs-doctag,
 .hljs-formula {
-  color: var(--key-bar);
+  color: #f472b6;
   font-weight: 600;
 }
 
-/* رشته — سبز */
+/* رشته‌ها — سبز زمردی درخشان و کاملاً واضح */
 .hljs-string,
 .hljs-regexp,
 .hljs-addition,
 .hljs-attribute,
 .hljs-meta .hljs-string {
-  color: var(--ok-bar);
+  color: #4ade80;
 }
 
-/* عدد و ثابت */
+/* عدد و مقادیر بولی/ثابت — کهربایی طلایی (123, true, false, null) */
 .hljs-number,
 .hljs-literal,
-.hljs-variable,
 .hljs-template-variable,
 .hljs-tag .hljs-attr {
-  color: var(--warn-bar);
+  color: #fbbf24;
 }
 
-/* تابع */
+/* نام تابع و بخش — آبی فیروزه‌ای روشن */
 .hljs-title,
 .hljs-title.function_,
 .hljs-section {
-  color: var(--note-bar);
+  color: #38bdf8;
   font-weight: 600;
 }
 
-/* نوع و کلاس */
+/* نوع‌ها، کلاس‌ها و توابع سیستمی (Math, JSON, Promise, Array, ...) */
 .hljs-type,
 .hljs-class .hljs-title,
 .hljs-built_in,
 .hljs-title.class_,
 .hljs-selector-class {
-  color: var(--tip-bar);
+  color: #2dd4bf;
 }
 
-/* نام‌های ثابت (true / null) */
+/* نمادها و متغیرهای ویژه */
 .hljs-symbol,
 .hljs-bullet,
 .hljs-link {
-  color: var(--look-bar);
+  color: #818cf8;
 }
 
-/* نام‌های متغیر و ویژگی‌ها */
+/* نام‌های متغیر و خصوصیات آبجکت — سفید یخی/نقره‌ای روشن */
 .hljs-name,
 .hljs-attr,
+.hljs-variable,
 .hljs-selector-id,
 .hljs-selector-class_ {
-  color: var(--code-text);
+  color: #f1f5f9;
 }
 
-/* نشانه‌گذاری */
+/* نشانه‌گذاری و عملگرها — نقره‌ای روشن و بسیار خوانا (=, +, -, [, ], {, }, ;, ,) */
 .hljs-punctuation,
 .hljs-operator {
-  color: var(--text-muted);
+  color: #cbd5e1;
 }
 
-/* ⚠️ زیرخط‌قرمزی زیر چیزی که بهتر است نباشد */
+/* حذف و خطا */
 .hljs-deletion {
-  color: var(--bad-bar);
+  color: #f87171;
 }
 
-/* ⭐ کلیدواژه‌های درشت در پیام‌های کنسول */
+/* تأکید در کنسول */
 .hljs-strong {
   font-weight: 700;
 }

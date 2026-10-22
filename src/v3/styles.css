@@ -2,17 +2,21 @@
  * styles.css — استایل‌های یکپارچه نسخه ۳ با تمام کارت‌ها، تم‌ها و ترمینال‌ها
  */
 @import '../v2/styles.css';
+@import '../v2/highlight.css';
 
 /* ── اصلاحات اختصاصی نسخه ۳ برای ارگونومی و عدم تداخل RTL ── */
 
-/* بلوک‌های کد حتماً باید چپ‌به‌راست و تراز چپ باشند تا پرانتزها و جیسون به هم نریزند */
+/* بلوک‌های کد حتماً باید چپ‌به‌راست و تراز چپ باشند و رنگ متن خوانا و شفاف داشته باشند */
 pre,
 code.hljs,
+.terminal-window,
 .terminal-window pre,
+.terminal-window code,
 .diagram pre {
   direction: ltr !important;
   text-align: left !important;
   font-family: var(--font-mono, monospace) !important;
+  color: var(--code-text, #f8fafc);
 }
 
 /* لنگر سرتیترها فقط هنگام هاور روی تیتر دیده شود */

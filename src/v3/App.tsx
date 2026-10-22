@@ -1,7 +1,7 @@
 /**
  * App.tsx — محیط اختصاصی نسخه ۳ با کنترل کامل روی ظاهر، قلم، رنگ‌بندی و چیدمان ارگونومیک
  */
-import { useEffect, useMemo, useState } from 'react'
+import { useEffect, useMemo, useRef, useState } from 'react'
 import { loadDocs } from '../docs'
 import { extractHeadings } from '../slug'
 import { Markdown } from '../v2/Markdown'
@@ -2075,14 +2075,39 @@ const STATION8_BRUNO_TESTS = [
 export default function App() {
   const [docs, setDocs] = useState<Doc[]>([])
   const [loading, setLoading] = useState(true)
-  const [selectedStationId, setSelectedStationId] = useState<number>(1)
-  const [activeTab, setActiveTab] = useState<'reader' | 'toolbox' | 'bruno' | 'code'>('reader')
+  const [selectedStationId, setSelectedStationId] = useState<number>(() => {
+    try {
+      const saved = localStorage.getItem('roadmap-reader-v3-station')
+      if (saved !== null) {
+        const val = parseInt(saved, 10)
+        if (!isNaN(val) && val >= 0 && val <= 8) return val
+      }
+    } catch {}
+    return 1
+  })
+  const [activeTab, setActiveTab] = useState<'reader' | 'toolbox' | 'bruno' | 'code'>(() => {
+    try {
+      const saved = localStorage.getItem('roadmap-reader-v3-tab')
+      if (saved && ['reader', 'toolbox', 'bruno', 'code'].includes(saved)) {
+        return saved as 'reader' | 'toolbox' | 'bruno' | 'code'
+      }
+    } catch {}
+    return 'reader'
+  })
   const [copiedKey, setCopiedKey] = useState<string | null>(null)
+  const isRestoringScroll = useRef(false)
 
   // پنل‌های کناری جمع‌شونده (برای جلوگیری از شلوغی)
   const [sidebarOpen, setSidebarOpen] = useState(true)
   const [tocOpen, setTocOpen] = useState(false)
   const [settingsOpen, setSettingsOpen] = useState(false)
+
+  // غیرفعال کردن اسکرول خودکار مرورگر تا با لود اسناد تداخل نکند
+  useEffect(() => {
+    if ('scrollRestoration' in history) {
+      history.scrollRestoration = 'manual'
+    }
+  }, [])
 
   // تنظیمات کاربر (با ذخیره در localStorage)
   const [settings, setSettings] = useState<V3Settings>(() => {
@@ -2092,6 +2117,19 @@ export default function App() {
     } catch {}
     return DEFAULT_SETTINGS
   })
+
+  // ذخیره وضعیت ایستگاه و تب انتخاب‌شده
+  useEffect(() => {
+    try {
+      localStorage.setItem('roadmap-reader-v3-station', String(selectedStationId))
+    } catch {}
+  }, [selectedStationId])
+
+  useEffect(() => {
+    try {
+      localStorage.setItem('roadmap-reader-v3-tab', activeTab)
+    } catch {}
+  }, [activeTab])
 
   // اعمال تنظیمات روی تگ html و استایل‌ها
   useEffect(() => {
@@ -2128,6 +2166,86 @@ export default function App() {
       setLoading(false)
     })
   }, [])
+
+  // ذخیره موقعیت اسکرول هنگام خواندن متن
+  useEffect(() => {
+    if (loading) return
+
+    const key = `roadmap-reader-v3-scroll-${selectedStationId}-${activeTab}`
+
+    const handleScroll = () => {
+      if (isRestoringScroll.current) return
+      const y = window.scrollY
+      try {
+        sessionStorage.setItem(key, String(y))
+      } catch {}
+    }
+
+    window.addEventListener('scroll', handleScroll, { passive: true })
+    return () => window.removeEventListener('scroll', handleScroll)
+  }, [loading, selectedStationId, activeTab])
+
+  // بازیابی هوشمند موقعیت اسکرول پس از لود شدن اسناد یا تغییر ایستگاه/تب
+  useEffect(() => {
+    if (loading) return
+
+    const key = `roadmap-reader-v3-scroll-${selectedStationId}-${activeTab}`
+    const saved = sessionStorage.getItem(key)
+    const targetY = saved ? parseInt(saved, 10) : 0
+
+    if (!isNaN(targetY) && targetY > 0) {
+      isRestoringScroll.current = true
+      const t1 = setTimeout(() => {
+        window.scrollTo({ top: targetY, behavior: 'instant' })
+        requestAnimationFrame(() => {
+          window.scrollTo({ top: targetY, behavior: 'instant' })
+          const t2 = setTimeout(() => {
+            isRestoringScroll.current = false
+          }, 150)
+          return () => clearTimeout(t2)
+        })
+      }, 50)
+      return () => clearTimeout(t1)
+    } else {
+      isRestoringScroll.current = false
+    }
+  }, [loading, selectedStationId, activeTab])
+
+  // حفظ موقعیت اسکرول هنگام رفتن به ادیتور و بازگشت به مرورگر
+  useEffect(() => {
+    const key = `roadmap-reader-v3-scroll-${selectedStationId}-${activeTab}`
+
+    const handleVisibilityChange = () => {
+      if (document.visibilityState === 'hidden') {
+        try {
+          sessionStorage.setItem(key, String(window.scrollY))
+        } catch {}
+      } else if (document.visibilityState === 'visible' && !loading) {
+        const saved = sessionStorage.getItem(key)
+        const targetY = saved ? parseInt(saved, 10) : 0
+        if (targetY > 0 && Math.abs(window.scrollY - targetY) > 50) {
+          isRestoringScroll.current = true
+          window.scrollTo({ top: targetY, behavior: 'instant' })
+          setTimeout(() => {
+            isRestoringScroll.current = false
+          }, 150)
+        }
+      }
+    }
+
+    const handleBeforeUnload = () => {
+      try {
+        sessionStorage.setItem(key, String(window.scrollY))
+      } catch {}
+    }
+
+    document.addEventListener('visibilitychange', handleVisibilityChange)
+    window.addEventListener('beforeunload', handleBeforeUnload)
+    return () => {
+      document.removeEventListener('visibilitychange', handleVisibilityChange)
+      window.removeEventListener('beforeunload', handleBeforeUnload)
+    }
+  }, [loading, selectedStationId, activeTab])
 
   const copyToClipboard = (text: string, key: string) => {
     navigator.clipboard.writeText(text)

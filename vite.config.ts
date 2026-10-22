@@ -29,6 +29,19 @@ import tailwindcss from '@tailwindcss/vite'
  */
 export default defineConfig({
   plugins: [react(), tailwindcss()],
+  server: {
+    watch: {
+      ignored: [
+        '**/safir-project/**',
+        '**/.git/**',
+        '**/dist/**',
+        '**/.kilo/**',
+        '**/.claude/**',
+        '**/*.log',
+        '**/.موقت-*',
+      ],
+    },
+  },
   build: {
     outDir: 'dist',
     // markdown ها حجم باندل را زیاد می‌کنند؛ برای دیباگ بهتر است جدا بمانند
