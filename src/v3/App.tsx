@@ -519,13 +519,16 @@ model ChatMessage {
   customer   Customer? @relation(fields: [customerId], references: [id])
 }`
 
-const STATION3_SERVER_CODE = `// server.js — نسخه ۳: گام سوم (احراز هویت JWT و تفکیک نقش‌ها با Fastify)
+const STATION3_SERVER_CODE = `// server.js — نسخه ۳: گام سوم (احراز هویت JWT و تفکیک نقش‌ها با Fastify و Prisma)
 
+require('dotenv').config();
 const fastify = require('fastify')({ logger: true });
 const { PrismaClient } = require('@prisma/client');
+const { PrismaPg } = require('@prisma/adapter-pg');
 const bcrypt = require('bcryptjs');
 
-const prisma = new PrismaClient();
+const adapter = new PrismaPg({ connectionString: process.env.DATABASE_URL });
+const prisma = new PrismaClient({ adapter });
 
 // ثبت پلاگین JWT
 fastify.register(require('@fastify/jwt'), {
@@ -710,12 +713,15 @@ const STATION3_BRUNO_TESTS = [
 
 const STATION4_SERVER_CODE = `// server.js — نسخه ۳: گام چهارم (کمد حافظه Redis و صف انبار BullMQ)
 
+require('dotenv').config();
 const fastify = require('fastify')({ logger: true });
 const { PrismaClient } = require('@prisma/client');
+const { PrismaPg } = require('@prisma/adapter-pg');
 const Redis = require('ioredis');
 const { Queue } = require('bullmq');
 
-const prisma = new PrismaClient();
+const adapter = new PrismaPg({ connectionString: process.env.DATABASE_URL });
+const prisma = new PrismaClient({ adapter });
 
 // ۱. اتصال به حافظه رم پرسرعت Redis
 const redis = new Redis({
@@ -983,12 +989,15 @@ const STATION4_BRUNO_TESTS = [
 
 const STATION5_SERVER_CODE = `// server.js — نسخه ۳: گام پنجم (مغز متفکر — اتصال به LLM با خروجی معتبر JSON)
 
+require('dotenv').config();
 const fastify = require('fastify')({ logger: true });
 const { PrismaClient } = require('@prisma/client');
+const { PrismaPg } = require('@prisma/adapter-pg');
 const { OpenAI } = require('openai');
 const { z } = require('zod');
 
-const prisma = new PrismaClient();
+const adapter = new PrismaPg({ connectionString: process.env.DATABASE_URL });
+const prisma = new PrismaClient({ adapter });
 
 // ۱. کلاینت هوش مصنوعی (سازگار با Ollama لوکال روی پورت 11434 یا OpenAI ابری)
 const openai = new OpenAI({
@@ -1199,11 +1208,14 @@ const STATION5_BRUNO_TESTS = [
 
 const STATION6_SERVER_CODE = `// server.js — نسخه ۳: گام ششم (کتابخانه و رفرنس — RAG و جستجوی وکتور با pgvector)
 
+require('dotenv').config();
 const fastify = require('fastify')({ logger: true });
 const { PrismaClient } = require('@prisma/client');
+const { PrismaPg } = require('@prisma/adapter-pg');
 const { OpenAI } = require('openai');
 
-const prisma = new PrismaClient();
+const adapter = new PrismaPg({ connectionString: process.env.DATABASE_URL });
+const prisma = new PrismaClient({ adapter });
 
 const openai = new OpenAI({
   baseURL: process.env.AI_BASE_URL || 'http://localhost:11434/v1',
@@ -1438,12 +1450,15 @@ const STATION6_BRUNO_TESTS = [
 
 const STATION7_SERVER_CODE = `// server.js — نسخه ۳: گام هفتم (دست‌به‌آچار شدن — ایجنت خودمختار و Function Calling)
 
+require('dotenv').config();
 const fastify = require('fastify')({ logger: true });
 const { PrismaClient } = require('@prisma/client');
+const { PrismaPg } = require('@prisma/adapter-pg');
 const Redis = require('ioredis');
 const { OpenAI } = require('openai');
 
-const prisma = new PrismaClient();
+const adapter = new PrismaPg({ connectionString: process.env.DATABASE_URL });
+const prisma = new PrismaClient({ adapter });
 const redis = new Redis({
   host: process.env.REDIS_HOST || '127.0.0.1',
   port: process.env.REDIS_PORT || 6379,
@@ -1758,6 +1773,7 @@ const STATION7_BRUNO_TESTS = [
 
 const STATION8_SERVER_CODE = `// server.prod.js — نسخه ۳: گام هشتم (کامل، ضدگلوله و آماده پروداکشن)
 
+require('dotenv').config();
 const fastify = require('fastify')({
   logger: {
     level: process.env.LOG_LEVEL || 'info'
@@ -1766,11 +1782,13 @@ const fastify = require('fastify')({
 });
 
 const { PrismaClient } = require('@prisma/client');
+const { PrismaPg } = require('@prisma/adapter-pg');
 const Redis = require('ioredis');
 const helmet = require('@fastify/helmet');
 const rateLimit = require('@fastify/rate-limit');
 
-const prisma = new PrismaClient();
+const adapter = new PrismaPg({ connectionString: process.env.DATABASE_URL });
+const prisma = new PrismaClient({ adapter });
 const redis = new Redis({
   host: process.env.REDIS_HOST || '127.0.0.1',
   port: process.env.REDIS_PORT || 6379,

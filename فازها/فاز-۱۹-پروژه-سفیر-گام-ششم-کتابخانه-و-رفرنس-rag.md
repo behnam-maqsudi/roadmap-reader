@@ -108,6 +108,12 @@ model KnowledgeDocument {
 }
 ```
 
+پس از ویرایش فایل اسکیما، دستورات مایگریشن و تولید کلاینت را در ترمینال اجرا کن:
+```bash
+npx prisma migrate dev --name add_knowledge_documents
+npx prisma generate
+```
+
 ---
 
 ## ۴. کدهای سرور سفیر (`server.js`) مجهز به موتور RAG
@@ -115,11 +121,14 @@ model KnowledgeDocument {
 ```javascript
 // server.js — نسخه ۳: گام ششم (کتابخانه و رفرنس — RAG با pgvector و مدل زبانی)
 
+require('dotenv').config();
 const fastify = require('fastify')({ logger: true });
 const { PrismaClient } = require('@prisma/client');
+const { PrismaPg } = require('@prisma/adapter-pg');
 const { OpenAI } = require('openai');
 
-const prisma = new PrismaClient();
+const adapter = new PrismaPg({ connectionString: process.env.DATABASE_URL });
+const prisma = new PrismaClient({ adapter });
 
 const openai = new OpenAI({
   baseURL: process.env.AI_BASE_URL || 'http://localhost:11434/v1',
