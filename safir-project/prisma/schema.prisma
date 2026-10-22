@@ -1,0 +1,48 @@
+// prisma/schema.prisma — نقشه بایگانی پایگاه داده پروژه سفیر
+
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "postgresql"
+}
+
+// ۱. مدل مشتریان (Customer)
+model Customer {
+  id        String   @id @default(uuid()) // تولید شناسه یکتای تصادفی
+  name      String
+  phone     String   @unique              // شماره موبایل نباید تکراری باشد
+  createdAt DateTime @default(now())
+
+  // روابط
+  orders    Order[]                       // یک مشتری می‌تواند چندین سفارش داشته باشد
+  messages  ChatMessage[]                 // تاریخچه پیام‌های چت این مشتری
+}
+
+// ۲. مدل سفارشات (Order)
+model Order {
+  id          String   @id @default(uuid())
+  orderNumber String   @unique            // شماره پیگیری سفارش (مثلاً 101)
+  itemTitle   String                      // نام کالا
+  status      String   @default("ثبت اولیه") // وضعیت فعلی بسته
+  city        String                      // شهر مقصد
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
+
+  // اتصال به مشتری (رابطه با جدول Customer)
+  customerId  String
+  customer    Customer @relation(fields: [customerId], references: [id])
+}
+
+// ۳. مدل پیام‌های چت سفیر (ChatMessage)
+model ChatMessage {
+  id        String   @id @default(uuid())
+  sender    String                        // چه کسی پیام داد؟ (کاربر یا ربات)
+  content   String                        // متن پیام
+  createdAt DateTime @default(now())
+
+  // در صورت مشخص بودن، به کدام مشتری تعلق دارد
+  customerId String?
+  customer   Customer? @relation(fields: [customerId], references: [id])
+}

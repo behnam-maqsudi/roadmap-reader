@@ -292,11 +292,16 @@ model ChatMessage {
   customer   Customer? @relation(fields: [customerId], references: [id])
 }`
 
-const STATION2_SERVER_CODE = `// server.js — نسخه ۳: گام دوم (اتصال به دیتابیس با Prisma)
+const STATION2_SERVER_CODE = `// server.js — نسخه ۳: گام دوم (اتصال به دیتابیس پایدار با Prisma و Driver Adapter)
 
+require('dotenv').config();
 const fastify = require('fastify')({ logger: true });
 const { PrismaClient } = require('@prisma/client');
-const prisma = new PrismaClient();
+const { PrismaPg } = require('@prisma/adapter-pg');
+
+// ایجاد اتصال دیتابیس با درایور استاندارد PostgreSQL (Prisma 7+)
+const adapter = new PrismaPg({ connectionString: process.env.DATABASE_URL });
+const prisma = new PrismaClient({ adapter });
 
 // ۱. نبض سرور و تست اتصال زنده دیتابیس
 fastify.get('/health', async (request, reply) => {
@@ -2825,20 +2830,37 @@ export default function App() {
                       <div className="rounded-2xl border border-[var(--border)] bg-[var(--surface)] p-5 flex flex-col justify-between gap-4 md:col-span-2">
                         <div>
                           <div className="flex items-center justify-between mb-2">
-                            <h3 className="font-bold text-sm text-[var(--text)]">۳. نصب Prisma CLI و Prisma Client</h3>
-                            <span className="rounded bg-amber-500/15 text-amber-500 text-[0.65rem] px-2 py-0.5 font-bold">دستور نصب</span>
+                            <h3 className="font-bold text-sm text-[var(--text)]">۳. پکیج‌های کامل Prisma و درایور PostgreSQL (دانلود قبل از قطع نت)</h3>
+                            <span className="rounded bg-emerald-500/15 text-emerald-500 text-[0.65rem] px-2 py-0.5 font-bold">بسته کامل Prisma 7</span>
                           </div>
                           <p className="text-xs text-[var(--text-muted)] mb-3 leading-relaxed">
-                            دستورات زیر را در پوشه پروژه اجرا کن تا کلاینت و موتور تایپ‌سیف دیتابیس نصب شوند:
+                            در نسخه ۷ و بالاتر پریزما، علاوه بر هسته پریزما به درایور PostgreSQL (<code className="font-mono text-[var(--primary)]">pg</code>) و آداپتور (<code className="font-mono text-[var(--primary)]">@prisma/adapter-pg</code>) و <code className="font-mono text-[var(--primary)]">dotenv</code> نیاز داریم تا اتصال مستقیم برقرار شود:
                           </p>
-                          <div className="bg-[var(--surface-2)] border border-[var(--border)] rounded-xl p-3 font-mono text-xs text-[var(--text)] flex items-center justify-between">
-                            <span>npm install prisma --save-dev && npm install @prisma/client</span>
+                          <div className="bg-[var(--surface-2)] border border-[var(--border)] rounded-xl p-3 font-mono text-xs text-[var(--text)] flex items-center justify-between mb-3">
+                            <span>npm install @prisma/client @prisma/adapter-pg pg dotenv && npm install prisma @types/pg --save-dev</span>
                             <button
-                              onClick={() => copyToClipboard('npm install prisma --save-dev && npm install @prisma/client', 'cmd-prisma')}
+                              onClick={() => copyToClipboard('npm install @prisma/client @prisma/adapter-pg pg dotenv && npm install prisma @types/pg --save-dev', 'cmd-prisma')}
                               className="rounded bg-[var(--surface-3)] px-3 py-1 text-xs font-sans text-[var(--text)] hover:bg-[var(--primary)] hover:text-white"
                             >
-                              {copiedKey === 'cmd-prisma' ? 'کپی شد! ✓' : 'کپی دستور'}
+                              {copiedKey === 'cmd-prisma' ? 'کپی شد! ✓' : 'کپی دستور پکیج‌ها'}
                             </button>
+                          </div>
+
+                          <div className="mt-4 border-t border-[var(--border)] pt-3">
+                            <h4 className="font-bold text-xs text-[var(--text)] mb-1.5">فایل پیکربندی <code className="font-mono text-[var(--primary)]">prisma7.config.ts</code> (یا <code className="font-mono text-[var(--primary)]">prisma.config.ts</code>):</h4>
+                            <p className="text-[0.7rem] text-[var(--text-muted)] mb-2">
+                              در ریشه پروژه فایلی با این نام بساز تا مایگریشن آدرس دیتابیس را مستقیماً از فایل .env بخواند:
+                            </p>
+                            <pre className="p-3 bg-[var(--surface-2)] rounded-xl border border-[var(--border)] font-mono text-xs text-[var(--code-text,#f8fafc)] overflow-x-auto text-left" dir="ltr">
+                              <code>{`import "dotenv/config";
+import { defineConfig } from "prisma/config";
+
+export default defineConfig({
+  schema: "prisma/schema.prisma",
+  migrations: { path: "prisma/migrations" },
+  datasource: { url: process.env.DATABASE_URL! },
+});`}</code>
+                            </pre>
                           </div>
                         </div>
                       </div>
