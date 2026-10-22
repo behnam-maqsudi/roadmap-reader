@@ -5,7 +5,8 @@
   "main": "server.js",
   "scripts": {
     "start": "node server.js",
-    "dev": "node --watch server.js"
+    "dev": "node --watch server.js",
+    "redis": "node run-redis.js"
   },
   "keywords": [
     "safir",
@@ -35,6 +36,7 @@
   },
   "devDependencies": {
     "@types/pg": "^8.23.1",
+    "pino-pretty": "^13.2.0",
     "prisma": "^7.10.1"
   }
 }

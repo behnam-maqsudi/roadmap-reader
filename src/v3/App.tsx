@@ -3310,29 +3310,24 @@ export default defineConfig({
                         <div>
                           <div className="flex items-center justify-between mb-2">
                             <h3 className="font-bold text-sm text-[var(--text)]">۱. موتور پایگاه داده Redis ویندوز</h3>
-                            <span className="rounded bg-emerald-500/15 text-emerald-500 text-[0.65rem] px-2 py-0.5 font-bold">پورت 6379</span>
+                            <span className="rounded bg-emerald-500/15 text-emerald-500 text-[0.65rem] px-2 py-0.5 font-bold">آماده و فعال ✓</span>
                           </div>
                           <p className="text-xs text-[var(--text-muted)] mb-3 leading-relaxed">
-                            پایگاه داده درون‌حافظه‌ای RAM برای کش مافوق‌صوت و نگهداری صف‌ها.
+                            پایگاه داده درون‌حافظه‌ای RAM برای کش مافوق‌صوت و صف‌های BullMQ روی پورت ۶۳۷۹.
                           </p>
-                          <div className="bg-[var(--surface-2)] border border-[var(--border)] rounded-xl p-2.5 font-mono text-xs text-[var(--primary)] flex items-center justify-between">
-                            <span>redis-cli ping</span>
+                          <div className="bg-[var(--surface-2)] border border-[var(--border)] rounded-xl p-2.5 font-mono text-xs text-[var(--primary)] flex items-center justify-between mb-2">
+                            <span>npm run redis</span>
                             <button
-                              onClick={() => copyToClipboard('redis-cli ping', 'cmd-redis-ping')}
+                              onClick={() => copyToClipboard('npm run redis', 'cmd-redis-run')}
                               className="text-xs text-[var(--text-muted)] hover:text-[var(--text)] font-sans"
                             >
-                              {copiedKey === 'cmd-redis-ping' ? 'کپی شد!' : 'کپی'}
+                              {copiedKey === 'cmd-redis-run' ? 'کپی شد!' : 'کپی'}
                             </button>
                           </div>
                         </div>
-                        <a
-                          href="https://github.com/tporadowski/redis/releases"
-                          target="_blank"
-                          rel="noreferrer"
-                          className="text-center rounded-xl bg-[var(--surface-2)] hover:bg-[var(--primary)] hover:text-white text-[var(--text)] font-bold text-xs py-2.5 transition-all border border-[var(--border)]"
-                        >
-                          دانلود فایل زیپ پرتابل ردیس ویندوز ↗
-                        </a>
+                        <div className="text-center rounded-xl bg-[var(--surface-2)] text-[var(--text-muted)] text-xs py-2.5 border border-[var(--border)]">
+                          نصب لوکال ویندوز (پورت 6379 فعال)
+                        </div>
                       </div>
 
                       {/* ioredis */}
