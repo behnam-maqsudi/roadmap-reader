@@ -46,3 +46,15 @@ model ChatMessage {
   customerId String?
   customer   Customer? @relation(fields: [customerId], references: [id])
 }
+
+// ۴. مدل اسناد دانشنامه و قوانین سفیر (KnowledgeDocument) برای RAG و سرچ برداری
+model KnowledgeDocument {
+  id        String   @id @default(uuid())
+  title     String
+  content   String
+  category  String   @default("RULES")
+  createdAt DateTime @default(now())
+
+  // ستون بردار با بعد ۳۸۴ (منطبق با مدل لوکال all-minilm)
+  embedding Unsupported("vector(384)")?
+}

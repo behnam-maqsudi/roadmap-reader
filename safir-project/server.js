@@ -132,6 +132,50 @@ fastify.get("/api/orders/:orderNumber", async (request, reply) => {
   }
 });
 
+fastify.patch("/api/orders/:orderNumber", async (request, reply) => {
+  const { orderNumber } = request.params;
+
+  try {
+    const order = await prisma.order.findUnique({
+      where: { orderNumber: String(orderNumber) },
+    });
+
+    if (!order) {
+      reply.status(404);
+      return {
+        success: false,
+        error: `سفارشی با شماره پیگیری ${orderNumber} در دیتابیس یافت نشد!`,
+      };
+    }
+
+    // Update the order status and other fields here if needed
+    await prisma.order.update({
+      where: { orderNumber: String(orderNumber) },
+      data: {
+        status: "تحویل انبار داده شد",
+        updatedAt: new Date(), // Assuming you want to update the last updated date
+      },
+    });
+
+    return {
+      success: true,
+      message: `سفارش با شماره ${orderNumber} به اتمام رسیده است`,
+      order: order,
+    };
+  } catch (error) {
+    if (error instanceof PrismaClientKnownRequestError) {
+      // Handle specific error scenarios
+      if (error.code === "P2003") {
+        return { success: false, error: "مشتری مورد نظر یافت نشد" };
+      }
+    }
+
+    fastify.log.error(error);
+    reply.status(500);
+    return { success: false, error: "خطا در ویرایش سفارش" };
+  }
+});
+
 // ۴. مسیر ثبت سفارش جدید در دیتابیس (برای تست و اضافه کردن محصول)
 fastify.post("/api/orders", async (request, reply) => {
   const { orderNumber, itemTitle, city, customerPhone, customerName } =
