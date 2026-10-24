@@ -40,20 +40,19 @@
   docker run --name safir-postgres -e POSTGRES_PASSWORD=postgres -p 5432:5432 -d pgvector/pgvector:pg16
   ```
 
-### ۲. مدل تولید بردار متنی (Embedding Model) در Ollama
-- **چرا نیاز داریم:** امبدینگ‌ها مدل‌های سبکی هستند که متن را به آرایه‌ای از اعداد (مثلاً بردار ۳۸۴ یا ۷۶۸ بعدی) تبدیل می‌کنند.
-- **دستور دانلود مدل امبدینگ فوق‌سریع در Ollama (یک‌بار قبل از قطعی اینترنت):**
+### ۲. مدل تولید بردار متنی (Embedding Model) در LM Studio یا Ollama
+- **چرا نیاز داریم:** امبدینگ‌ها مدل‌های سبکی هستند که متن را به آرایه‌ای از اعداد اعشاری (بردار) تبدیل می‌کنند.
+- **اگر در LM Studio هستی:**
+  * مدل **`nomic-ai/nomic-embed-text-v2-moe-GGUF`** (یا v1.5) را در LM Studio لود کن.
+  * پورت محلی: `http://localhost:1234/v1`
+- **اگر در Ollama هستی:**
   ```bash
-  ollama pull all-minilm
-  # یا مدل قدرتمند nomic:
-  # ollama pull nomic-embed-text
+  ollama pull nomic-embed-text
   ```
 - **تست تولید بردار در ترمینال:**
   ```bash
-  curl http://localhost:11434/api/embeddings -d '{
-    "model": "all-minilm",
-    "prompt": "سلام سفیر"
-  }'
+  # تست LM Studio:
+  curl http://localhost:1234/v1/embeddings -H "Content-Type: application/json" -d "{\"model\": \"nomic-ai/nomic-embed-text-v2-moe-GGUF\", \"input\": \"سلام سفیر\"}"
   ```
 
 ---
